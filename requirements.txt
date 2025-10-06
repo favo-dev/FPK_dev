@@ -1,0 +1,11 @@
+streamlit
+pandas
+numpy
+supabase==2.18.0
+sendgrid
+cryptography
+ftfy
+matplotlib
+
+
+
