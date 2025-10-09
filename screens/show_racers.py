@@ -1,3 +1,29 @@
+import ast
+import html as _html
+import re
+import streamlit as st
+import streamlit.components.v1 as components
+from supabase import create_client
+import matplotlib.pyplot as plt
+from logic.utilities import (
+    _estimate_rows_height,
+    _parse_display_value,
+    _count_items_like_list,
+    _render_simple_table_html,
+    parse_list_field,
+    normalize_fullname_for_keys,
+)
+
+# --------------------- SUPABASE CLIENT --------------------------------------
+
+# Recupera le credenziali dal file .streamlit/secrets.toml
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+
+# Crea il client per connettersi al database Supabase
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+
 def show_racer_screen():
     # Accept either the canonical selected_pilot or the legacy selected_driver
     pilot = st.session_state.get("selected_pilot") or st.session_state.get("selected_driver")
