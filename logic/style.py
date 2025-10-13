@@ -100,3 +100,49 @@ def _render_simple_table_html(rows, spacing_px=None, row_padding=None):
 
 # -------------------------------------------------------------------------------------------
 
+def render_standings_custom(df, teams, title):
+    st.markdown(f"<h2 style='color:#ffffff; background-color:#222222; font-size:28px; font-weight:bold; padding: 4px 8px; border-radius:4px;'>{title}</h2>", unsafe_allow_html=True)
+    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="display:flex; font-weight:700; border-bottom:2px solid #ccc; padding-bottom:6px; margin-bottom:8px;">
+        <div style="width:30px;">Pos</div>
+        <div style="width:30px;"></div>
+        <div style="flex-grow:1;">Team</div>
+        <div style="width:60px; text-align:right;">Points</div>
+        <div style="width:80px; text-align:right;">Penalty</div>
+        <div style="width:100px; text-align:right;">Gap (previous)</div>
+        <div style="width:80px; text-align:right;">Gap (leader)</div>
+    </div>
+    """, unsafe_allow_html=True)
+    for _, row in df.iterrows():
+        team_name = row["Team"]
+        team_info = next((t for t in teams if (t.get("name") == team_name) or (t.get("ID") == team_name) or (t.get("id") == team_name)), None)
+        main_raw = None
+        second_raw = None
+        if team_info:
+    # prova varie chiavi possibili (nel caso la colonna si chiami con nomi diversi)
+            for key in ("main color", "main_color", "mainColor", "mainColorRGB"):
+                if key in team_info:
+                    main_raw = parse_color_field(team_info.get(key))
+                    break
+            for key in ("second color", "second_color", "secondColor", "accent color"):
+                if key in team_info:
+                    second_raw = parse_color_field(team_info.get(key))
+                    break
+
+        color_main = safe_rgb_to_hex(main_raw) if main_raw is not None else safe_rgb_to_hex([0,0,0])
+        color_second = safe_rgb_to_hex(second_raw) if second_raw is not None else safe_rgb_to_hex([100,100,100])
+        st.markdown(f"""
+        <div style="display:flex; align-items:center; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid #eee;">
+            <div style="width:30px;">{row['Position']}</div>
+            <div style="width:20px; height:20px; background-color:{color_main}; border: 2px solid {color_second}; border-radius:4px; margin-right:10px;"></div>
+            <div style="flex-grow:1;">{team_name}</div>
+            <div style="width:60px; text-align:right;">{row['Pts']}</div>
+            <div style="width:80px; text-align:right; color:red;">{row['Penalty']}</div>
+            <div style="width:100px; text-align:right; color:gray;">{row['Gap from previous']}</div>
+            <div style="width:80px; text-align:right; color:#555;">{row['Gap from leader']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# -------------------------------------------------------------------------------------------
+
