@@ -100,4 +100,3 @@ def _render_simple_table_html(rows, spacing_px=None, row_padding=None):
 
 # -------------------------------------------------------------------------------------------
 
-
