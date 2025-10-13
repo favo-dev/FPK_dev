@@ -13,16 +13,12 @@ from typing import Any, List, Dict
 from supabase import create_client
 from logic.style import safe_rgb_to_hex
 
-
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 
 TABLE_SPACING_PX = 0.5
 DEFAULT_ROW_PADDING = '4px 10px'
-
 
 # -------------------------
 # Correzioni manuali globali
@@ -32,24 +28,36 @@ MANUAL_CORRECTIONS = {
     "maverick viaales": "maverick vinales",
     "jorge martan": "jorge martin",
     "raaol fernandez": "raul fernandez",
-    # aggiungi qui altre correzioni note
 }
+
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
+def get_supabase_client():
+    supabase_url = st.secrets["SUPABASE_URL"]
+    supabase_key = st.secrets["SUPABASE_ANON_KEY"]
+    return create_client(supabase_url, supabase_key)
+
+# -------------------------------------------------------------------------------------------
 
 def make_safe_key(*args):
     key = "_".join(str(a) for a in args)
     key = re.sub(r"[^a-zA-Z0-9_]", "_", key)
     return key
 
+# -------------------------------------------------------------------------------------------
+
 def go_to_screen(new_screen):
-    # push into history then change screen
     st.session_state.setdefault("screen_history", [])
     if "screen" in st.session_state:
         st.session_state.screen_history.append(st.session_state.screen)
     st.session_state.screen = new_screen
     st.rerun()
 
+# -------------------------------------------------------------------------------------------
+
 def _parse_display_value(raw):
-    """Versione robusta che converte liste/dict/json string -> display string."""
     if raw is None:
         return "N/A"
     if isinstance(raw, (list, tuple)):
@@ -61,7 +69,6 @@ def _parse_display_value(raw):
             return str(raw)
     if isinstance(raw, str):
         s = raw.strip()
-        # prova JSON o literal eval
         try:
             parsed = json.loads(s)
             return _parse_display_value(parsed)
@@ -93,9 +100,11 @@ def _count_items_like_list(raw):
             return len(parts)
     return 0
 
+# -------------------------------------------------------------------------------------------
+
 def _render_simple_table_html(rows, spacing_px=None, row_padding=None):
     spacing = 0 if spacing_px is None else spacing_px   # 0 di default (nessun margin-bottom extra)
-    padding = '2px 8px' if row_padding is None else row_padding  # padding più compatto
+    padding = '2px 8px' if row_padding is None else row_padding  
 
     rows_html = ""
     for label, value in rows:
@@ -125,6 +134,7 @@ def _render_simple_table_html(rows, spacing_px=None, row_padding=None):
     """
     return table_html
 
+# -------------------------------------------------------------------------------------------
 
 def _estimate_rows_height(rows,
                           container_width_px=1000,
@@ -132,15 +142,17 @@ def _estimate_rows_height(rows,
                           right_pct=0.35,
                           avg_char_px=7.0,
                           line_height_px=18,
-                          vertical_padding_px=6,   # più piccolo
-                          min_h=24,                # molto più piccolo: lascia spazio solo per 1-2 righe
+                          vertical_padding_px=6,   
+                          min_h=24,                
                           max_h=8000,
-                          safety_mul=1.0,          # togli il moltiplicatore aggressivo
+                          safety_mul=1.0,          
                           per_row_padding_px=0):
     left_w = int(container_width_px * left_pct) - 32
     right_w = int(container_width_px * right_pct) - 32
     left_chars_per_line = max(20, int(left_w / max(1.0, avg_char_px)))
     right_chars_per_line = max(10, int(right_w / max(1.0, avg_char_px)))
+
+# -------------------------------------------------------------------------------------------
 
     def _count_wrapped_lines(text, chars_per_line):
         if not text:
@@ -152,7 +164,6 @@ def _estimate_rows_height(rows,
         lines = 0
         cur = 0
         for token in tokens:
-            # consider token length + 1 (space)
             token_len = len(token) + 1
             if cur + token_len > chars_per_line:
                 lines += 1
@@ -180,7 +191,8 @@ def _estimate_rows_height(rows,
         est = max_h
     return est, needs_scroll
 
-# safe rgb -> hex (usata sia in championship che racers)
+# -------------------------------------------------------------------------------------------
+
 def rgb_to_hex(color):
     try:
         if not color:
@@ -205,6 +217,8 @@ def rgb_to_hex(color):
         pass
     return "#888888"
 
+# -------------------------------------------------------------------------------------------
+
 def safe_load_team_list(raw):
     if isinstance(raw, list):
         return raw
@@ -215,8 +229,9 @@ def safe_load_team_list(raw):
             return [raw]
     return []
 
+# -------------------------------------------------------------------------------------------
+
 def normalize(name):
-    """Normalizza il nome: minuscolo, senza accenti, senza caratteri speciali"""
     if not isinstance(name, str):
         return ""
     s = unicodedata.normalize("NFKD", name)
@@ -224,9 +239,10 @@ def normalize(name):
     s = s.lower().strip()
     s = re.sub(r"[^a-z0-9]", "", s)
     return s
+
+# -------------------------------------------------------------------------------------------
     
 def normalize_category(cat):
-    """Normalizza vari alias di categoria in 'f1' o 'motogp'."""
     if not isinstance(cat, str):
         return ""
     s = cat.strip().lower()
@@ -234,14 +250,14 @@ def normalize_category(cat):
         return "f1"
     if s in ("motogp", "mgp", "moto", "moto gp", "motorbike", "moto-gp"):
         return "motogp"
-    # se l'input è già 'f1' o 'mgp' ecc.
     if "f1" in s:
         return "f1"
     if "mgp" in s or "motogp" in s or "moto" in s:
         return "motogp"
     return s
 
-    # helper: normalizzazione nomi
+# -------------------------------------------------------------------------------------------
+
 def normalize_fullname_for_keys(name):
         if not isinstance(name, str):
             return ""
@@ -256,7 +272,8 @@ def normalize_fullname_for_keys(name):
         s = re.sub(r"\s+", " ", s)
         return unicodedata.normalize("NFC", s)
 
-    # helper: parse campi lista presenti nelle tabelle
+# -------------------------------------------------------------------------------------------
+    
 def parse_list_field(v):
         if v is None:
             return []
@@ -285,20 +302,15 @@ def parse_list_field(v):
             return [s.strip().strip("'\"")]
         return []
 
+# -------------------------------------------------------------------------------------------
+
 def fix_mojibake(s):
-    """Prova a correggere stringhe decodificate col set sbagliato (es. Ã¡ -> á).
-    Normalizza anche in NFC.
-    Se non può correggere, restituisce la stringa originale normalizzata in NFC.
-    """
     try:
         if not isinstance(s, str):
             return s
-        # normalizza combinazioni di diacritici
         s_nfc = unicodedata.normalize("NFC", s)
-        # se la stringa contiene sequenze tipiche di mojibake (Ã o Â), provo la ricodifica
         if "Ã" in s_nfc or "Â" in s_nfc:
             try:
-                # interpreta i caratteri come latin-1 bytes e li decodifica come utf-8
                 repaired = s_nfc.encode("latin-1").decode("utf-8")
                 return unicodedata.normalize("NFC", repaired)
             except Exception:
@@ -307,15 +319,9 @@ def fix_mojibake(s):
     except Exception:
         return s
 
-import ast
+# -------------------------------------------------------------------------------------------
 
 def build_pilot_colors(teams):
-    """
-    Costruisce un dizionario {(categoria_normalizzata, nome_key): (main_hex, second_hex, display_name)}
-    - per 'f1' la chiave è il cognome normalizzato
-    - per 'motogp' creo sia la chiave nome_completo che la chiave cognome (entrambi normalizzati)
-    Display name memorizza il cognome (corretto con accenti) per la visualizzazione.
-    """
     pilot_colors = {}
     combined_pilots = []
 
@@ -324,13 +330,15 @@ def build_pilot_colors(teams):
         "MotoGP": ["MotoGP", "motogp", "MGP", "mgp", "moto", "moto gp"]
     }
 
+# -------------------------------------------------------------------------------------------
+
     def parse_color(raw):
         """Gestisce stringa, lista, tuple o jsonb di colore."""
         if raw is None:
             return "#888888"
         if isinstance(raw, str):
             try:
-                # Se è una stringa tipo "[200,216,15]" -> converto
+                
                 val = ast.literal_eval(raw)
                 return safe_rgb_to_hex(val)
             except Exception:
@@ -338,7 +346,6 @@ def build_pilot_colors(teams):
         return safe_rgb_to_hex(raw)
 
     for team in teams:
-        # fix robusto per leggere i colori anche se JSONB
         main_raw = (
             team.get("main color") or team.get("main_color") or
             team.get("mainColor") or team.get("main")
@@ -353,7 +360,6 @@ def build_pilot_colors(teams):
 
         for cat_label, variants in cat_variants.items():
             raw_pilots = None
-            # cerca chiave nel dict team in modo robusto (case-insensitive)
             for v in variants:
                 if v in team and team[v]:
                     raw_pilots = team[v]
@@ -368,7 +374,6 @@ def build_pilot_colors(teams):
             if not raw_pilots:
                 continue
 
-            # standardizzo raw_pilots in lista
             try:
                 if isinstance(raw_pilots, str):
                     raw_pilots_eval = ast.literal_eval(raw_pilots)
@@ -388,16 +393,16 @@ def build_pilot_colors(teams):
                     p_str = str(p)
                 combined_pilots.append((p_str, cat_label, main_hex, second_hex))
 
-    # ------------------ costruzione mapping finale ------------------
+   
     for pilot, cat_label, main_hex, second_hex in combined_pilots:
         cat_norm = normalize_category(cat_label)
-        parsed_name = normalize_fullname_for_keys(pilot)  # corrected + NFC
+        parsed_name = normalize_fullname_for_keys(pilot) 
         parts = parsed_name.split()
         surname = parts[-1] if parts else parsed_name
 
         if cat_norm == "motogp":
-            key_full = normalize(parsed_name)   # nome completo normalizzato ASCII
-            key_surname = normalize(surname)    # cognome normalizzato ASCII
+            key_full = normalize(parsed_name) 
+            key_surname = normalize(surname) 
             display = surname
             pilot_colors[(cat_norm, key_full)] = (main_hex, second_hex, display)
             pilot_colors[(cat_norm, key_surname)] = (main_hex, second_hex, display)
@@ -408,8 +413,7 @@ def build_pilot_colors(teams):
 
     return pilot_colors
 
-
-
+# -------------------------------------------------------------------------------------------
 
 def color_box_html(main, second):
     return (
@@ -417,6 +421,8 @@ def color_box_html(main, second):
         f'background-color:{main};border:2px solid {second};margin-right:8px;'
         f'vertical-align:middle;border-radius:3px;"></span>'
     )
+
+# -------------------------------------------------------------------------------------------
 
 def format_name(fullname, pilot_colors, category):
     try:
@@ -428,30 +434,29 @@ def format_name(fullname, pilot_colors, category):
         surname = parts[-1] if parts else parsed_name
 
         if cat_norm == "motogp":
-            key = normalize(parsed_name)  # provo full name
+            key = normalize(parsed_name) 
         else:
             key = normalize(surname)
 
         main, second, display = pilot_colors.get((cat_norm, key), (None, None, None))
-        # se non trovato con quella chiave, fallback su cognome per MotoGP
         if (display is None or display == "") and cat_norm == "motogp":
             fallback = pilot_colors.get((cat_norm, normalize(surname)))
             if fallback:
                 main, second, display = fallback
 
-        # fallback generico se ancora nulla
         if display is None:
             display = surname
             main, second = "#888888", "#444444"
 
-        # assicurati che la display string sia corretta (ripara eventuale mojibake residuo)
+
         display = fix_mojibake(display)
         return f"{color_box_html(main, second)}{display}"
     except Exception as e:
         print("Errore in format_name:", e, fullname, category)
         return str(fullname)
 
-# ---------- get_color (aggiornata) ----------
+# -------------------------------------------------------------------------------------------
+
 def get_color(fullname, pilot_colors, category):
     try:
         cat_norm = normalize_category(category or "")
@@ -467,7 +472,7 @@ def get_color(fullname, pilot_colors, category):
         for k in keys_to_try:
             v = pilot_colors.get((cat_norm, k))
             if v:
-                raw_color = v[0]  # può essere lista, dict, json string, ecc.
+                raw_color = v[0]  
                 rgb = parse_color_field(raw_color)
                 if rgb:
                     return safe_rgb_to_hex(rgb)
@@ -476,6 +481,8 @@ def get_color(fullname, pilot_colors, category):
     except Exception as e:
         print(f"[get_color] Errore per {fullname}: {e}")
         return "#888888"
+
+# -------------------------------------------------------------------------------------------
 
 def get_results(race, category, sprint):
     file_path = f"{race}/sprint_standings.pkl" if sprint else f"{race}/standings.pkl"
@@ -486,6 +493,8 @@ def get_results(race, category, sprint):
     except Exception as e:
         print(f"Errore nel download di {file_path} dal bucket {bucket_name}: {e}")
         return None
+
+# -------------------------------------------------------------------------------------------
         
 def sprint_pole(race, category):
     file_path = f"{race}/sprint_poleposition.pkl"
@@ -496,6 +505,8 @@ def sprint_pole(race, category):
     except Exception as e:
         print(f"Errore nel download di {file_path} dal bucket {bucket_name}: {e}")
         return None
+
+# -------------------------------------------------------------------------------------------
 
 def results_exist(race, tag):
     try:
@@ -510,10 +521,9 @@ def results_exist(race, tag):
         print(f"Errore in results_exist: {e}")
         return False
 
+# -------------------------------------------------------------------------------------------
+
 def normalize_riders(raw):
-    """Return a list of rider names from multiple possible input shapes.
-    Mantiene i caratteri speciali (á, é, ü, ecc.).
-    """
     if isinstance(raw, str):
         s = raw.strip()
         if s.startswith("[") and s.endswith("]"):
@@ -538,27 +548,16 @@ def normalize_riders(raw):
 
     return []
 
+# -------------------------------------------------------------------------------------------
+
 def parse_color_field(value):
-    """
-    Normalizza i possibili formati di 'main color' / 'second color' dalla tabella class.
-    Accetta:
-      - list/tuple e.g. [255,0,0]
-      - dict e.g. {"r":255,"g":0,"b":0} o {"0":255,"1":0,"2":0}
-      - string esadecimale e.g. "#ff0000"
-      - string JSON e.g. "[255,0,0]" o '{"r":255,"g":0,"b":0}'
-      - string tipo "rgb(255,0,0)"
-      - valori float 0..1 (scala a 0..255)
-    Restituisce una tupla (r,g,b) di int oppure None se non parsabile.
-    """
     if value is None:
         return None
 
-    # se è già lista/tuple
     if isinstance(value, (list, tuple)):
         if len(value) >= 3:
             try:
                 r = value[0]; g = value[1]; b = value[2]
-                # gestisci floats 0..1
                 if any(isinstance(x, float) and 0.0 <= x <= 1.0 for x in (r,g,b)):
                     r, g, b = [int(round(float(x) * 255)) for x in (r,g,b)]
                 else:
@@ -567,16 +566,13 @@ def parse_color_field(value):
             except Exception:
                 return None
 
-    # se è dict
     if isinstance(value, dict):
-        # prova chiavi comuni
         for keys in (("r","g","b"), ("R","G","B"), ("0","1","2")):
             try:
                 r = value.get(keys[0])
                 g = value.get(keys[1])
                 b = value.get(keys[2])
                 if r is not None and g is not None and b is not None:
-                    # come sopra
                     if any(isinstance(x, float) and 0.0 <= x <= 1.0 for x in (r,g,b)):
                         r, g, b = [int(round(float(x) * 255)) for x in (r,g,b)]
                     else:
@@ -584,7 +580,6 @@ def parse_color_field(value):
                     return (max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
             except Exception:
                 continue
-        # fallback: prova a prendere i primi 3 valori del dict
         try:
             vals = list(value.values())
             if len(vals) >= 3:
@@ -597,12 +592,9 @@ def parse_color_field(value):
         except Exception:
             return None
 
-    # se è stringa
     if isinstance(value, str):
         s = value.strip()
-        # se è già esadecimale #rrggbb o #rgb
         if re.match(r"^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", s):
-            # espandi #rgb in #rrggbb
             if len(s) == 4:
                 s = "#" + "".join(ch*2 for ch in s[1:])
             try:
@@ -610,7 +602,6 @@ def parse_color_field(value):
                 return (r,g,b)
             except Exception:
                 return None
-        # rgb(...) pattern
         m = re.match(r"rgb\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*\)", s, flags=re.I)
         if m:
             r,g,b = m.group(1), m.group(2), m.group(3)
@@ -623,18 +614,15 @@ def parse_color_field(value):
                 return (max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
             except Exception:
                 pass
-        # prova JSON parsing (es. "[255,0,0]" o '{"r":255,...}')
         try:
             parsed = json.loads(s)
             return parse_color_field(parsed)
         except Exception:
-            # prova ast.literal_eval per stringhe tipo "['255','0','0']"
             try:
                 parsed = ast.literal_eval(s)
                 return parse_color_field(parsed)
             except Exception:
                 pass
-        # prova a estrarre numeri presenti nella stringa (fallback)
         nums = re.findall(r"[0-9]+(?:\.[0-9]+)?", s)
         if len(nums) >= 3:
             try:
@@ -646,15 +634,14 @@ def parse_color_field(value):
                 return (max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b)))
             except Exception:
                 pass
-
-    # se non riconosciuto
     return None
+
+# -------------------------------------------------------------------------------------------
 
 def safe_unpickle(data_bytes):
     if data_bytes is None:
         return None
     try:
-        # se è già oggetto python
         if not isinstance(data_bytes, (bytes, bytearray)):
             return data_bytes
         return pickle.loads(data_bytes)
@@ -665,52 +652,40 @@ def safe_unpickle(data_bytes):
         except Exception:
             return None
 
+# -------------------------------------------------------------------------------------------
+
 def normalize_name(name):
-    """Normalizza stringhe rimuovendo accenti, caratteri strani e minuscole"""
     if not name:
         return ""
     name = str(name).strip().lower()
-    # Normalizza accenti e caratteri combinati
     name = unicodedata.normalize('NFKD', name)
     name = "".join(c for c in name if not unicodedata.combining(c))
-    # Rimuove tutto tranne lettere e spazi
     name = re.sub(r"[^a-z\s]", "", name)
-    # Rimuove spazi multipli
     name = re.sub(r"\s+", " ", name).strip()
     return name
 
+# -------------------------------------------------------------------------------------------
+
 def clean_team_drivers(raw_drivers):
-    """
-    Trasforma una stringa o lista in lista di nomi. Gestisce vari tipi di quote e caratteri speciali.
-    """
     if raw_drivers is None:
         return []
     
-    # Se è già lista, puliscila e normalizza
     if isinstance(raw_drivers, list):
         return [normalize_name(str(d).strip()) for d in raw_drivers if d]
-    
-    # Se non è stringa, torna lista vuota
     if not isinstance(raw_drivers, str):
         return []
-
-    # Rimuove [ ] iniziali/finali se presenti
     cleaned = raw_drivers.strip()
     if cleaned.startswith("[") and cleaned.endswith("]"):
         cleaned = cleaned[1:-1]
-
-    # Estrae i nomi racchiusi tra apici singoli o doppi
     names = re.findall(r"'([^']+)'|\"([^\"]+)\"", cleaned)
     drivers = [normalize_name(t[0] if t[0] else t[1]) for t in names]
-    
-    # Se regex fallisce (lista vuota), prova split semplice su virgola
     if not drivers and cleaned:
         drivers = [normalize_name(d.strip().strip("'\"")) for d in cleaned.split(",") if d.strip()]
-    
     return drivers
 
+# -------------------------------------------------------------------------------------------
+
 def extract_driver_and_points(elem: Any, f1_mode=True):
-    """ Estrae nome e punti dal vettore di standings. f1_mode=True: usa solo il cognome f1_mode=False: usa nome completo (MotoGP) """
     if isinstance(elem, (list, tuple)) and len(elem) >= 6:
         raw_name = str(elem[0])
         name = raw_name.split()[-1] if f1_mode else raw_name
@@ -740,9 +715,8 @@ def extract_driver_and_points(elem: Any, f1_mode=True):
         return name, pts
     return None, 0
 
-# -------------------------
-# Funzioni ottimizzate / nuove
-# -------------------------
+# -------------------------------------------------------------------------------------------
+
 @st.cache_data(ttl=60, show_spinner=False)
 def load_table(name: str):
     try:
@@ -751,8 +725,9 @@ def load_table(name: str):
     except Exception:
         return []
 
+# -------------------------------------------------------------------------------------------
+
 def list_all(bucket: str, path: str = "") -> List[dict]:
-    """Scarica tutti i file/cartelle da uno storage Supabase, gestendo la paginazione."""
     all_items = []
     limit = 100
     offset = 0
@@ -774,25 +749,16 @@ def list_all(bucket: str, path: str = "") -> List[dict]:
 
     return all_items
 
+# -------------------------------------------------------------------------------------------
 
 def load_standings_from_buckets(buckets: List[str] = ["F1", "MGP"]) -> Dict[str, Dict[str, Dict[str, Any]]]:
-    """
-    Versione semplificata e lineare:
-    - Niente cache
-    - Niente parallelizzazione
-    - Paginazione per prendere tutto da Supabase
-    - Debug log per capire cosa manca
-    """
     standings_data: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
     for bucket in buckets:
         standings_data[bucket] = {}
 
-        # prendo tutte le cartelle (gare)
         race_folders = list_all(bucket, "")
         race_names = [r["name"].rstrip("/") for r in race_folders if r.get("name")]
-
-        #st.write(f"📂 Bucket {bucket}: trovate {len(race_names)} cartelle")
 
         for race_name in race_names:
             race_dict = {}
@@ -800,17 +766,11 @@ def load_standings_from_buckets(buckets: List[str] = ["F1", "MGP"]) -> Dict[str,
             file_names = [f["name"] for f in files if "name" in f]
             file_names_lower = [fn.lower() for fn in file_names]
 
-            #st.write(f"  🏁 Gara {race_name}: {len(file_names)} file -> {file_names}")
-
-            # cerco standings (case insensitive)
             main_file = next((fn for fn, fn_l in zip(file_names, file_names_lower)
                               if fn_l.endswith("standings.pkl") and "sprint" not in fn_l), None)
             sprint_file = next((fn for fn, fn_l in zip(file_names, file_names_lower)
                                 if fn_l.endswith("sprint_standings.pkl")), None)
 
-            
-
-            # standings principali
             if main_file:
                 try:
                     b = supabase.storage.from_(bucket).download(f"{race_name}/{main_file}")
@@ -821,7 +781,6 @@ def load_standings_from_buckets(buckets: List[str] = ["F1", "MGP"]) -> Dict[str,
             else:
                 race_dict["standings"] = None
 
-            # standings sprint
             if sprint_file:
                 try:
                     b = supabase.storage.from_(bucket).download(f"{race_name}/{sprint_file}")
@@ -836,10 +795,9 @@ def load_standings_from_buckets(buckets: List[str] = ["F1", "MGP"]) -> Dict[str,
 
     return standings_data
 
-
+# -------------------------------------------------------------------------------------------
 
 def build_points_dict(category_data: Any, use_full_name: bool) -> Dict[str, float]:
-    """Costruisce dict {driver_normalized: total_points} da una lista standings"""
     points: Dict[str, float] = {}
     if not category_data:
         return points
@@ -852,8 +810,9 @@ def build_points_dict(category_data: Any, use_full_name: bool) -> Dict[str, floa
         points[name_norm] = points.get(name_norm, 0) + float(pts)
     return points
 
+# -------------------------------------------------------------------------------------------
+
 def build_normalized_team_set(team_drivers: Any, use_full_name: bool) -> set:
-    """Normalizza la lista dei driver del team e restituisce un set per lookup O(1)"""
     team_drivers_clean = clean_team_drivers(team_drivers)
     if use_full_name:
         normalized = [normalize_name(d) for d in team_drivers_clean]
@@ -862,9 +821,8 @@ def build_normalized_team_set(team_drivers: Any, use_full_name: bool) -> set:
     normalized = [MANUAL_CORRECTIONS.get(n, n) for n in normalized]
     return set(normalized)
 
-# -------------------------
-# Render: mantengo la tua funzione di rendering
-# -------------------------
+# -------------------------------------------------------------------------------------------
+
 def render_standings_custom(df, teams, title):
     st.markdown(f"<h2 style='color:#ffffff; background-color:#222222; font-size:28px; font-weight:bold; padding: 4px 8px; border-radius:4px;'>{title}</h2>", unsafe_allow_html=True)
     st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
@@ -909,12 +867,12 @@ def render_standings_custom(df, teams, title):
         </div>
         """, unsafe_allow_html=True)
 
+# -------------------------------------------------------------------------------------------
+
 def update_user_field(user, field, label):
-    # Assicuriamoci che il valore sia in session_state
     if f"{field}_temp" not in st.session_state:
         st.session_state[f"{field}_temp"] = user.get(field, "")
 
-    # Text input legato al session_state temporaneo
     new_val = st.text_input(label, value=st.session_state[f"{field}_temp"], key=f"{field}_input")
     st.session_state[f"{field}_temp"] = new_val  # aggiorna subito session_state
 
@@ -940,6 +898,7 @@ def update_user_field(user, field, label):
         # Rimuovi temporaneo per future modifiche
         del st.session_state[f"{field}_temp"]
 
+# -------------------------------------------------------------------------------------------
 
 def render_badges(data_dict, pilot_colors, category):
     st.markdown("<hr style='margin:20px 0;'>", unsafe_allow_html=True)
