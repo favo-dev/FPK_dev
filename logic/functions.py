@@ -1050,14 +1050,32 @@ def extract_votes_from_record(mr):
 
 # -----------------------------------------------------------------------------------------------
 
-    def compute_stats_from_marks_record(mr, threshold):
-        votes = extract_votes_from_record(mr)
-        if not votes:
-            return None
-        nums = [float(x) for x in votes if str(x).strip() != ""]
-        if not nums:
-            return None
-        avg = sum(nums) / len(nums)
-        suff_cnt = sum(1 for x in nums if x >= threshold)
-        pct = 100.0 * suff_cnt / len(nums)
-        return {"avg": avg, "count": len(nums), "suff_count": suff_cnt, "pct": pct}
+def compute_stats_from_marks_record(mr, threshold):
+    votes = extract_votes_from_record(mr)
+    if not votes:
+        return None
+    nums = [float(x) for x in votes if str(x).strip() != ""]
+    if not nums:
+        return None
+    avg = sum(nums) / len(nums)
+    suff_cnt = sum(1 for x in nums if x >= threshold)
+    pct = 100.0 * suff_cnt / len(nums)
+    return {"avg": avg, "count": len(nums), "suff_count": suff_cnt, "pct": pct}
+
+# -----------------------------------------------------------------------------------------------
+
+def avg_to_hex(avg):
+    if avg is None:
+        return "#666666"
+    min_avg = 4.5
+    max_avg = 8.0
+    col_low = "#6a0d1a"   
+    col_high = "#00b300"   
+    r1, g1, b1 = hex_to_rgb(col_low)
+    r2, g2, b2 = hex_to_rgb(col_high)
+    t = (float(avg) - min_avg) / (max_avg - min_avg)
+    t = max(0.0, min(1.0, t))
+    r = r1 + (r2 - r1) * t
+    g = g1 + (g2 - g1) * t
+    b = b1 + (b2 - b1) * t
+    return safe_rgb_to_hex((r, g, b))
