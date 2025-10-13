@@ -975,3 +975,89 @@ def _render_pilot_buttons(pilot_list, prefix_key, team_id=None):
                     st.session_state["selected_category"] = "F1" if prefix_key == "f1" else "MGP"
                     go_to_screen("pilot_details")
                     st.rerun()
+                    
+# -----------------------------------------------------------------------------------------------
+
+def extract_votes_from_record(mr):
+        """Estrae una lista di numeri (float) dai campi del record marks."""
+        if not mr:
+            return []
+        nums = []
+
+        list_field_candidates = ("votes", "voti", "marks", "scores", "voti_gara", "gara_voti", "results")
+        for cand in list_field_candidates:
+            if cand in mr and mr[cand] is not None:
+                try:
+                    lst = parse_list_field(mr[cand])
+                except Exception:
+                    
+                    try:
+                        lst = ast.literal_eval(mr[cand]) if isinstance(mr[cand], str) else list(mr[cand])
+                    except Exception:
+                        lst = []
+                for x in lst:
+                    try:
+                        nums.append(float(str(x).replace(",", ".")))
+                    except Exception:
+                        pass
+                if nums:
+                    return nums
+
+        for k, v in mr.items():
+            if not k or str(k).lower() in ("id", "name", "nome", "driver", "pilot", "pilota"):
+                continue
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                nums.append(float(v))
+                continue
+            s = str(v).strip()
+            if not s or s.lower() in INVALID_TOKENS:
+                continue
+
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    lst = parse_list_field(s)
+                except Exception:
+                    try:
+                        lst = ast.literal_eval(s)
+                    except Exception:
+                        lst = []
+                for x in lst:
+                    try:
+                        nums.append(float(str(x).replace(",", ".")))
+                    except Exception:
+                        pass
+                continue
+
+            found = re.findall(r"-?\d+(?:[.,]\d+)?", s)
+            if found:
+                for tok in found:
+                    try:
+                        nums.append(float(tok.replace(",", ".")))
+                    except:
+                        pass
+                continue
+
+            cleaned = re.sub(r"[^\d\.\-\,]+", "", s).replace(",", ".")
+            try:
+                if cleaned not in ("", ".", "-", "-."):
+                    nums.append(float(cleaned))
+            except:
+                pass
+
+        return nums
+
+# -----------------------------------------------------------------------------------------------
+
+    def compute_stats_from_marks_record(mr, threshold):
+        votes = extract_votes_from_record(mr)
+        if not votes:
+            return None
+        nums = [float(x) for x in votes if str(x).strip() != ""]
+        if not nums:
+            return None
+        avg = sum(nums) / len(nums)
+        suff_cnt = sum(1 for x in nums if x >= threshold)
+        pct = 100.0 * suff_cnt / len(nums)
+        return {"avg": avg, "count": len(nums), "suff_count": suff_cnt, "pct": pct}
