@@ -1,5 +1,6 @@
 import ast
 import html as _html
+from supabase import create_client
 import streamlit as st
 import streamlit.components.v1 as components
 import matplotlib.pyplot as plt
