@@ -85,17 +85,27 @@ def callup_screen(user):
         hours, remainder = divmod(delta.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
 
-        first_limit = datetime.fromisoformat(champ[0]["limit"])
-        if first_limit.tzinfo is None:
-            first_limit = first_limit.replace(tzinfo=timezone.utc)
+        WEEK = 7 * 24 * 3600
+        if remaining_seconds > WEEK:
+            progress = 0.0
+        else:
+            progress = max(0.0, min(1.0, 1.0 - (remaining_seconds / WEEK)))
 
-        total_duration = (limit_dt - first_limit).total_seconds()
-        elapsed = total_duration - delta.total_seconds()
-        progress = max(0, min(1, elapsed / total_duration))
+    
+        TH_2_DAYS = 48 * 3600
+        TH_1_DAY = 24 * 3600
+        TH_2_HOURS = 2 * 3600
+        TH_30_MIN = 30 * 60
 
-        red = int(255 * progress)
-        green = int(255 * (1 - progress))
-        color_bar = f"rgb({red}, {green}, 0)"
+    
+        if remaining_seconds <= TH_30_MIN:
+            color_bar = "#dc3545" 
+        elif remaining_seconds <= TH_2_HOURS:
+            color_bar = "#ff9800" 
+        elif remaining_seconds <= TH_1_DAY:
+            color_bar = "#ffc107" 
+        else:
+            color_bar = "#28a745" 
 
         st.markdown(f"""
             <div style="
