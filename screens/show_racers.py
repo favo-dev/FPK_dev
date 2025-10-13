@@ -14,6 +14,7 @@ from logic.utilities import (
     get_supabase_client,
     extract_votes_from_record,
     compute_stats_from_marks_record,
+    avg_to_hex,
 )
 
 # -------------------------------------------------------------------------------------------
@@ -162,32 +163,6 @@ def show_racer_screen():
             votes_count = stats["count"]
             suff_count = stats["suff_count"]
             suff_percent = stats["pct"]
-
-    def hex_to_rgb(h):
-        h = h.lstrip("#")
-        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-
-    def rgb_to_hex(rgb):
-        return "#{:02x}{:02x}{:02x}".format(*[max(0, min(255, int(round(c)))) for c in rgb])
-
-    def avg_to_hex(avg):
-        if avg is None:
-            return "#666666"
-        # definisci i punti di controllo
-        min_avg = 4.5
-        max_avg = 8.0
-        # colori: bordeaux -> verde forte
-        col_low = "#6a0d1a"    # bordeaux (per avg = 4.5)
-        col_high = "#00b300"   # verde forte (per avg = 8.0)
-        r1, g1, b1 = hex_to_rgb(col_low)
-        r2, g2, b2 = hex_to_rgb(col_high)
-        # normalizza t in [0,1] rispetto a [min_avg, max_avg]
-        t = (float(avg) - min_avg) / (max_avg - min_avg)
-        t = max(0.0, min(1.0, t))
-        r = r1 + (r2 - r1) * t
-        g = g1 + (g2 - g1) * t
-        b = b1 + (b2 - b1) * t
-        return rgb_to_hex((r, g, b))
 
     avg_hex = avg_to_hex(avg_value)
 
