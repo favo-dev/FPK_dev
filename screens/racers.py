@@ -8,6 +8,7 @@ from logic.functions import parse_list_field, normalize_fullname_for_keys, safe_
 
 supabase = get_supabase_client()
 
+# --------------------- RACERS SCREEN ----------------------------------------------------
 
 def racers_screen(user):
     from urllib.parse import quote_plus
