@@ -4,22 +4,16 @@ import json
 import html as _html
 import streamlit as st
 from supabase import create_client
-from logic.style import rgb_to_hex, color_to_rgb
-from logic.utilities import normalize_riders, update_user_field, _parse_display_value
+from logic.functions import rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value, get_supabase_client, make_safe_key
 from screens.show_racers import show_racer_screen
 
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL, SUPABASE_ANON_KEY = st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-supabase_admin = create_client(SUPABASE_URL, st.secrets["SUPABASE_SERVICE_ROLE_KEY"])
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 
+supabase = get_supabase_client()
 
-def make_safe_key(name, prefix, idx):
-    base = re.sub(r"\W+", "_", name).strip("_").lower() or f"r{idx}"
-    return f"{prefix}_{base}_{idx}"
-
-
-# --------------------- MAIN SCREEN ------------------------------------------
+# --------------------- TEAM SCREEN --------------------------------------------------------
 
 def your_team_screen(user):
     st.header("Your Team")
@@ -39,13 +33,11 @@ def your_team_screen(user):
     st.session_state.setdefault("selected_driver", None)
     st.session_state.setdefault("customizing", False)
 
-    # fetch dati
     f1_data = supabase.from_("racers_f1").select("*").execute().data or []
     mgp_data = supabase.from_("racers_mgp").select("*").execute().data or []
 
     st.subheader("Options")
 
-    # --- STYLE SOLO per i tre pulsanti richiesti: callups (azzurro), customize (azzurro), exit (rosso)
     st.markdown("""
     <style>
     /* Call-ups & Customize: bordo azzurro e testo in grassetto */
@@ -96,7 +88,6 @@ def your_team_screen(user):
             supabase.table("class").update({"second color": color_to_rgb(new_second)}).eq("ID", user["ID"]).execute(); st.success("Second color updated!")
         st.markdown("</div>", unsafe_allow_html=True)
 
-  # F1 Drivers
     st.subheader("F1 Drivers")
     raw_f1 = user.get("F1", [])
     f1_riders = normalize_riders(raw_f1)
@@ -115,7 +106,6 @@ def your_team_screen(user):
     else:
         st.write("No F1 riders selected")
 
-    # --------------------- MotoGP Riders ---------------------
     st.subheader("MotoGP Riders")
     raw_mgp = user.get("MotoGP", [])
     mgp_riders = normalize_riders(raw_mgp)
