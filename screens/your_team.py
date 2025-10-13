@@ -3,7 +3,6 @@ import re
 import json
 import html as _html
 import streamlit as st
-from supabase import create_client
 from logic.functions import safe_rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value, get_supabase_client
 from screens.show_racers import show_racer_screen
 
