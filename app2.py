@@ -12,11 +12,14 @@ from logic.auth import (
     encrypt_email,
     decrypt_email,
     generate_direct_recovery_link_and_send,
+    _get_first,
 )
 from logic.functions import get_supabase_client
 from screens.home import home_screen
 
-
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
@@ -34,7 +37,8 @@ teams = supabase.table("class").select("*").execute()
 
 STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
 
-# --------------------- PAGE CONFIG -------------------------------------------
+# -------------------------------------------------------------------------------------------
+
 st.set_page_config(
     page_title="FPK Dev",
     page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/icons/FAVLINK_192.png",
@@ -42,7 +46,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --------------------- MANIFEST & SERVICE WORKER ------------------------------
+# -------------------------------------------------------------------------------------------
+
 MANIFEST_URL = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/icons/manifest.json"
 SW_URL = f"{STREAMLIT_URL}/app/static/service-worker.js"
 
@@ -61,7 +66,8 @@ if ('serviceWorker' in navigator) {{
 </script>
 """, unsafe_allow_html=True)
 
-# --------------------- SESSION STATE -----------------------------------------
+# -------------------------------------------------------------------------------------------
+
 for key in [
     "logged_in",
     "user",
@@ -74,12 +80,7 @@ for key in [
     if key not in st.session_state:
         st.session_state[key] = False if "logged_in" in key or "show" in key else None
 
-# --------------------- QUERY PARAMS HANDLER ----------------------------------
-def _get_first(qp, k):
-    v = qp.get(k)
-    if v is None:
-        return None
-    return v[0] if isinstance(v, (list, tuple)) else v
+# -------------------------------------------------------------------------------------------
 
 qp = st.query_params
 token_val = _get_first(qp, "token")
@@ -93,7 +94,8 @@ if type_val == "recovery" and token_val and encrypted_email_val:
         st.session_state.reset_email = decrypt_email(encrypted_email_val)
         st.rerun()
 
-# --------------------- RESET PASSWORD ----------------------------------------
+# -------------------------------------------------------------------------------------------
+
 if st.session_state.show_reset_password:
     st.header("Reset your password")
     with st.form("reset_password_form"):
@@ -138,7 +140,8 @@ if st.session_state.show_reset_password:
                 except Exception as e:
                     st.error(f"Error updating password: {e}")
 
-# --------------------- PASSWORD VALIDATION -----------------------------------
+# -------------------------------------------------------------------------------------------
+
 def is_valid_password(password: str) -> bool:
     return (
         len(password) >= 8
@@ -146,7 +149,8 @@ def is_valid_password(password: str) -> bool:
         and any(c.isdigit() for c in password)
     )
 
-# --------------------- MAIN APP ----------------------------------------------
+# -------------------------------------------------------------------------------------------
+
 if st.session_state.logged_in:
     # 🏠 HOME SCREEN
     home_screen(st.session_state.user)
@@ -361,6 +365,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
