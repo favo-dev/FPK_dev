@@ -1,6 +1,5 @@
 import ast
 import html as _html
-import re
 import streamlit as st
 import streamlit.components.v1 as components
 import matplotlib.pyplot as plt
@@ -9,12 +8,10 @@ from logic.utilities import (
     _parse_display_value,
     _count_items_like_list,
     _render_simple_table_html,
-    parse_list_field,
     normalize_fullname_for_keys,
     get_supabase_client,
-    extract_votes_from_record,
     compute_stats_from_marks_record,
-    avg_to_hex,
+    avg_to_hex,  
 )
 
 # -------------------------------------------------------------------------------------------
