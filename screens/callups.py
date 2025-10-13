@@ -1,7 +1,7 @@
 import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone
-from logic.functions import normalize_riders, get_supabase_client
+from logic.functions import normalize_riders
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
