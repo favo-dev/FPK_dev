@@ -1,14 +1,11 @@
 import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone
-from logic.utilities import normalize_riders
+from logic.functions import normalize_riders, get_supabase_client
 
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL, SUPABASE_ANON_KEY = st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+supabase = get_supabase_client()
 
 def callup_screen(user):
-    # ---- GESTIONE RERUN SENZA WARNING ----
     if st.session_state.get("force_rerun", False):
         st.session_state.force_rerun = False
         st.rerun()
@@ -18,7 +15,6 @@ def callup_screen(user):
     def display_race_section(champ_name, champ_code, user_key, callup_key):
         st.subheader(champ_name)
 
-        # Recupero prossima gara
         if "F1" in champ_code:
             champ = supabase.from_("championship_f1").select("*").execute().data
             howmany = 0
@@ -41,7 +37,6 @@ def callup_screen(user):
                     next_race = race
                     break
 
-        # 🔧 Conversione sicura con timezone
         limit_dt = datetime.fromisoformat(next_race["limit"])
         if limit_dt.tzinfo is None:
             limit_dt = limit_dt.replace(tzinfo=timezone.utc)
@@ -49,7 +44,6 @@ def callup_screen(user):
         now_utc = datetime.now(timezone.utc)
         delta = limit_dt - now_utc
 
-        # Box prossima gara
         st.markdown(f"""
             <div style="
                 background-color: #2f2f2f;
@@ -79,7 +73,6 @@ def callup_screen(user):
             """, unsafe_allow_html=True)
             return
 
-        # Timer e progress bar
         days = delta.days
         hours, remainder = divmod(delta.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
@@ -116,19 +109,16 @@ def callup_screen(user):
             </div>
         """, unsafe_allow_html=True)
 
-        # ---- SELEZIONE PILOTI ----
         drivers = user.get(user_key, [])
         drivers = normalize_riders(drivers)
         if len(drivers) < 3:
             st.error("Devi avere almeno 3 piloti nel team per scegliere First/Second/Reserve.")
             return
 
-        # Chiavi nello stato
         k1 = f"{callup_key}_1"
         k2 = f"{callup_key}_2"
         k3 = f"{callup_key}_3"
 
-        # Inizializzazione valori di default
         if k1 not in st.session_state or st.session_state[k1] not in drivers:
             st.session_state[k1] = drivers[0]
         if k2 not in st.session_state or st.session_state[k2] not in drivers:
@@ -136,7 +126,6 @@ def callup_screen(user):
         if k3 not in st.session_state or st.session_state[k3] not in drivers:
             st.session_state[k3] = drivers[2] if len(drivers) > 2 else drivers[0]
 
-        # Selectbox con lista completa per tutti
         st.selectbox(
             "First " + ("driver" if champ_code == "F1" else "rider"),
             drivers,
@@ -153,7 +142,6 @@ def callup_screen(user):
             key=k3
         )
 
-        # Bottone Salva con controllo duplicati
         if st.button(f"Save {champ_name} Call-up"):
             selected = [st.session_state[k1], st.session_state[k2], st.session_state[k3]]
             if len(set(selected)) < 3:
@@ -174,7 +162,6 @@ def callup_screen(user):
                     supabase.table("calls_mgp").update({"when": now_str}).eq("team", user["ID"]).execute()
                     st.success("Operation completed!")
 
-        # Stile bottone
         st.markdown("""
             <style>
             div.stButton > button {
@@ -192,10 +179,8 @@ def callup_screen(user):
             </style>
         """, unsafe_allow_html=True)
 
-    # ---- SEZIONE F1 ----
     display_race_section("F1", "F1", "F1", "f1")
 
-    # Separatore
     st.markdown("""
         <hr style="
             border: 1.5px solid #555;
@@ -204,10 +189,8 @@ def callup_screen(user):
         ">
     """, unsafe_allow_html=True)
 
-    # ---- SEZIONE MOTOGP ----
     display_race_section("MotoGP", "MGP", "MotoGP", "mgp")
 
-    # Bottone back
     st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("Back to team"):
         st.session_state.screen = "team"
