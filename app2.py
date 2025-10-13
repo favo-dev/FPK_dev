@@ -1,15 +1,21 @@
 import os
 import sys
-import subprocess
-from urllib.parse import urlparse, parse_qsl
 import datetime
 import streamlit as st
-from supabase import create_client, Client
-from logic.auth import register, login, logout, clone_repo, send_email_brevo, encrypt_mail, decrypt_mail, generate_direct_recovery_link_and_send
-from logic.functions import 
+from supabase import create_client
+from logic.auth import (
+    register,
+    login,
+    logout,
+    clone_repo,
+    send_email_brevo,
+    encrypt_email,
+    decrypt_email,
+    generate_direct_recovery_link_and_send,
+)
+from logic.functions import get_supabase_client
 from screens.home import home_screen
-import requests
-from cryptography.fernet import Fernet
+
 
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
@@ -23,7 +29,7 @@ sys.path.insert(0, os.path.abspath(CLONE_DIR))
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+supabase: Client = get_supabase_client()
 teams = supabase.table("class").select("*").execute()
 
 STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
@@ -355,6 +361,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
