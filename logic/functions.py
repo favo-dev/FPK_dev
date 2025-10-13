@@ -10,7 +10,6 @@ import pandas as pd
 import streamlit as st
 from typing import Any, List, Dict
 from supabase import create_client
-from logic.style import safe_rgb_to_hex
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
@@ -33,6 +32,7 @@ MANUAL_CORRECTIONS = {
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 
+@st.cache_resource(show_spinner=False)
 def get_supabase_client():
     supabase_url = st.secrets["SUPABASE_URL"]
     supabase_key = st.secrets["SUPABASE_ANON_KEY"]
@@ -428,6 +428,7 @@ def get_color(fullname, pilot_colors, category):
 def get_results(race, category, sprint):
     file_path = f"{race}/sprint_standings.pkl" if sprint else f"{race}/standings.pkl"
     bucket_name = category
+    supabase = get_supabase_client()
     try:
         data_bytes = supabase.storage.from_(bucket_name).download(file_path)
         return pickle.load(io.BytesIO(data_bytes))
@@ -440,6 +441,7 @@ def get_results(race, category, sprint):
 def sprint_pole(race, category):
     file_path = f"{race}/sprint_poleposition.pkl"
     bucket_name = category
+    supabase = get_supabase_client()
     try:
         data_bytes = supabase.storage.from_(bucket_name).download(file_path)
         return pickle.load(io.BytesIO(data_bytes))
@@ -660,6 +662,7 @@ def extract_driver_and_points(elem: Any, f1_mode=True):
 
 @st.cache_data(ttl=60, show_spinner=False)
 def load_table(name: str):
+    supabase = get_supabase_client()
     try:
         res = supabase.from_(name).select("*").execute()
         return res.data or []
@@ -670,6 +673,7 @@ def load_table(name: str):
 
 def list_all(bucket: str, path: str = "") -> List[dict]:
     all_items = []
+    supabase = get_supabase_client()
     limit = 100
     offset = 0
 
@@ -694,6 +698,7 @@ def list_all(bucket: str, path: str = "") -> List[dict]:
 
 def load_standings_from_buckets(buckets: List[str] = ["F1", "MGP"]) -> Dict[str, Dict[str, Dict[str, Any]]]:
     standings_data: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    supabase = get_supabase_client()
 
     for bucket in buckets:
         standings_data[bucket] = {}
@@ -767,7 +772,7 @@ def build_normalized_team_set(team_drivers: Any, use_full_name: bool) -> set:
 def update_user_field(user, field, label):
     if f"{field}_temp" not in st.session_state:
         st.session_state[f"{field}_temp"] = user.get(field, "")
-
+    supabase = get_supabase_client()
     new_val = st.text_input(label, value=st.session_state[f"{field}_temp"], key=f"{field}_input")
     st.session_state[f"{field}_temp"] = new_val  # aggiorna subito session_state
 
