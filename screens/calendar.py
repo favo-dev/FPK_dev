@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime, timedelta
+from supabase import create_client
 from logic.functions import (
     normalize_category,
     render_badges,
