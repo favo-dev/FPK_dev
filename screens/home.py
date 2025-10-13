@@ -7,6 +7,7 @@ from screens.championship import championship_screen, show_rules_screen
 from screens.show_racers import show_racer_screen
 from screens.racers import racers_screen
 from screens.roll import roll_screen
+from supabase import create_client
 from logic.functions import go_to_screen, get_supabase_client
 
 # -------------------------------------------------------------------------------------------
