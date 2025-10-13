@@ -10,7 +10,7 @@ def color_to_rgb(hex_color):
     
 # -------------------------------------------------------------------------------------------
 
-def render_table(df):
+def render_results_table(df):
     st.markdown("""
     <div style="display:flex;align-items:center;gap:10px;padding:5px 0;font-weight:600;border-bottom:1px solid #ccc;">
         <div style="width:90px;">Position</div>
@@ -63,6 +63,40 @@ def safe_rgb_to_hex(color):
         print(f"Errore in safe_rgb_to_hex: {e}")
 
     return "#888888"
+
+# -------------------------------------------------------------------------------------------
+
+def _render_simple_table_html(rows, spacing_px=None, row_padding=None):
+    spacing = 0 if spacing_px is None else spacing_px   # 0 di default (nessun margin-bottom extra)
+    padding = '2px 8px' if row_padding is None else row_padding  
+
+    rows_html = ""
+    for label, value in rows:
+        label_esc = _html.escape(str(label))
+        value_esc = _html.escape(str(value))
+        rows_html += f"""
+        <div style='display:flex; justify-content:space-between; align-items:flex-start;
+                    padding:{padding}; border-top:1px solid rgba(255,255,255,0.06);'>
+            <div style='font-size:13px; font-weight:600; color:#dcdcdc;
+                        max-width:65%; white-space:pre-wrap; word-break:break-word;
+                        overflow-wrap:anywhere; line-height:1.2;'>{label_esc}</div>
+            <div style='font-size:14px; font-weight:700; color:#ffffff; text-align:right;
+                        max-width:35%; white-space:pre-wrap; word-break:break-word;
+                        overflow-wrap:anywhere; line-height:1.2;'>{value_esc}</div>
+        </div>
+        """
+
+    table_html = f"""
+    <div style='width:100%; background:#222; border-radius:8px;
+                box-shadow:0 2px 6px rgba(0,0,0,0.12);
+                overflow:hidden;
+                height:auto;
+                font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+                margin-bottom:{spacing}px;'>
+        {rows_html}
+    </div>
+    """
+    return table_html
 
 # -------------------------------------------------------------------------------------------
 
