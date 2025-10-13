@@ -47,6 +47,7 @@ def clone_repo(CLONE_DIR, REPO_URL):
 # -------------------------------------------------------------------------------------------
 
 def logout():
+    supabase = get_supabase_client()
     supabase.auth.sign_out()
     st.session_state.logged_in = False
     st.session_state.user = None
