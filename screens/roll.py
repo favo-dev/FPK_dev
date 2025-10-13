@@ -1,14 +1,17 @@
 import ast
 import streamlit as st
-from supabase import create_client
+from logic.functions import get_supabase_client()
 
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
+supabase = get_supabase_client()
+
+# --------------------- ROLL SCREEN ----------------------------------------------------
 
 def roll_screen(user):
-    st.set_page_config(layout="wide")  # Assicurati sia presente nel main se non qui
+    st.set_page_config(layout="wide") 
 
     data = supabase.from_("roll_of_honor").select("*").execute().data or []
     teams = supabase.from_("class").select("*").execute().data or []
@@ -19,10 +22,7 @@ def roll_screen(user):
     anno_scelto = st.selectbox("Select a year", sorted(anni, reverse=True))
     entry = next((item for item in data if item["year"] == anno_scelto), None)
 
-    # --- Rettangolo colorato ---
-        # --- Rettangolo colorato ---
     def render_color_box(main_color, second_color):
-        # Se arrivano come stringhe, li trasformo in liste
         if isinstance(main_color, str):
             try:
                 main_color = ast.literal_eval(main_color)
@@ -48,8 +48,6 @@ def roll_screen(user):
         """
         return html
 
-
-    # --- Box piloti ---
     def render_driver_box(drivers, label):
         items = "".join([f"<li>{driver}</li>" for driver in drivers])
         html = f"""
@@ -66,7 +64,6 @@ def roll_screen(user):
         """
         return html
 
-    # --- Testata sezione ---
     def render_section_header(title, team_name):
         html = f"""
         <div style='text-align: center; padding: 0 10px;'>
@@ -79,15 +76,12 @@ def roll_screen(user):
         return html
 
     if entry:
-        # Layout più largo e bilanciato: meno spazio ai lati, più al centro
         colL, col_ff1, col_fpk, col_fmgp, colR = st.columns([1.5, 4, 5, 4, 1.5])
 
         with colL:
             url = 'https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/crown_left.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL2Nyb3duX2xlZnQucG5nIiwiaWF0IjoxNzU4NjM0ODQwLCJleHAiOjE3OTAxNzA4NDB9.0KqyfJ_YUfMS2h8t8yyxDlBvlyE3qU-awXx8Qu1cfEg'
             st.image(url, use_container_width=True)
 
-        # FF1
-                # FF1
         with col_ff1:
             team_id = entry.get("ff1")
             team = team_info.get(team_id)
@@ -108,7 +102,6 @@ def roll_screen(user):
             else:
                 st.warning("Team info missing")
 
-        # FPK
         with col_fpk:
             team_id = entry.get("fpk")
             team = team_info.get(team_id)
@@ -129,7 +122,6 @@ def roll_screen(user):
             else:
                 st.warning("Team info missing")
 
-        # FMGP
         with col_fmgp:
             team_id = entry.get("fmgp")
             team = team_info.get(team_id)
