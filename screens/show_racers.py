@@ -3,7 +3,6 @@ import html as _html
 import re
 import streamlit as st
 import streamlit.components.v1 as components
-from supabase import create_client
 import matplotlib.pyplot as plt
 from logic.utilities import (
     _estimate_rows_height,
@@ -12,17 +11,20 @@ from logic.utilities import (
     _render_simple_table_html,
     parse_list_field,
     normalize_fullname_for_keys,
+    get_supabase_client,
+    extract_votes_from_record,
+    compute_stats_from_marks_record,
 )
 
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 
+supabase = get_supabase_client()
 
-# --------------------- SCREENS ----------------------------------------------
+# --------------------- RACERS SCREEN ----------------------------------------------------
+
 def show_racer_screen():
-    # Accept either the canonical selected_pilot or the legacy selected_driver
     pilot = st.session_state.get("selected_pilot") or st.session_state.get("selected_driver")
     st.markdown("""
     <style>
@@ -36,14 +38,12 @@ def show_racer_screen():
         st.warning("Nessun pilota selezionato.")
         return
 
-    # Carico dati (una sola volta)
     try:
         data_f1 = supabase.from_("racers_f1").select("*").execute().data or []
         data_mgp = supabase.from_("racers_mgp").select("*").execute().data or []
     except Exception:
         data_f1, data_mgp = [], []
 
-    # Se non ho category esplicita, provo ad inferirla cercando il pilota nelle tabelle
     if not category:
         pid = str(pilot)
         found_in_f1 = any((str(p.get("ID")) == pid) or (str(p.get("name")) == pid) for p in data_f1)
@@ -53,11 +53,8 @@ def show_racer_screen():
         elif found_in_mgp and not found_in_f1:
             category = "MotoGP"
         elif found_in_f1 and found_in_mgp:
-            # ambiguità: preferiamo F1 per compatibilità, ma puoi cambiare il fallback
             category = "F1"
-        # se non trovato in nessuna, category resta "" e useremo la MGP fallback più sotto
 
-    # scegli i dati in base alla category (come prima)
     data = data_f1 if (category or "").upper().startswith("F1") else data_mgp
 
     pilot_info = next(
@@ -67,7 +64,6 @@ def show_racer_screen():
     if not pilot_info:
         st.error(f"Informazioni per il pilota '{pilot}' non trovate.")
         if st.button("Go back"):
-    # puliamo i flag di selezione per evitare che restino attivi
             for k in ("selected_pilot", "selected_driver", "selected_category"):
                 if k in st.session_state:
                     del st.session_state[k]
@@ -80,7 +76,7 @@ def show_racer_screen():
 
         return
 
-    # ---------------- PROFILE ----------------
+    # ---------------- PROFILE ------------------------------------------------------------------------
     profile_map_f1 = [
         ("Name", pilot_info.get("name") or pilot_info.get("ID")),
         ("Number", pilot_info.get("number") or pilot_info.get("no") or pilot_info.get("race_number")),
@@ -100,11 +96,9 @@ def show_racer_screen():
     profile_map = profile_map_f1 if (category or "").upper().startswith("F1") else profile_map_mgp
     profile_rows = [(label, _parse_display_value(value)) for label, value in profile_map]
 
-    # ---------------- AVERAGE / MARKS (UNIFICATO per F1 e MGP) ----------------
-    # soglia sufficienza fissa
+    # ---------------- AVERAGE / MARKS -------------------------------------------------------------
     SUFF_THRESHOLD = 6.0
 
-    # carico entrambe le tabelle indipendentemente (evita il fallback errato)
     try:
         marks_f1_rows = supabase.from_("marks_f1_new").select("*").execute().data or []
     except Exception:
@@ -122,20 +116,16 @@ def show_racer_screen():
         idx = {}
         for mr in rows:
             candidates = []
-            # campi comunemente usati
             for k in ("ID", "id", "Name", "name", "pilot", "pilota", "nome"):
                 v = mr.get(k)
                 if v is not None:
                     candidates.append(str(v))
-            # anche qualsiasi stringa dentro il record può contenere il nome (es. 'driver', 'full_name', ecc.)
             for v in mr.values():
                 if isinstance(v, str) and v.strip():
                     candidates.append(v.strip())
-            # indicizzo
             for c in candidates:
                 nk = normalize_key(c)
                 if nk:
-                    # preferisco ultimo valore (sovrascrive), ma puoi cambiare logica se vuoi il primo match
                     idx[nk] = mr
         return idx
 
@@ -143,115 +133,19 @@ def show_racer_screen():
     marks_idx_mgp = index_marks_rows(marks_mgp_rows)
 
     INVALID_TOKENS = {"", "none", "na", "n/a", "-", "dnf", "did not finish", "—", "nan", "null"}
-
-    def extract_votes_from_record(mr):
-        """Estrae una lista di numeri (float) dai campi del record marks."""
-        if not mr:
-            return []
-        nums = []
-
-        # primo tentativo: campi list-like espliciti (parse_list_field supporta stringhe tipo "[6,5.5]" o array)
-        list_field_candidates = ("votes", "voti", "marks", "scores", "voti_gara", "gara_voti", "results")
-        for cand in list_field_candidates:
-            if cand in mr and mr[cand] is not None:
-                try:
-                    lst = parse_list_field(mr[cand])
-                except Exception:
-                    # fallback ad ast.literal_eval se parse_list_field non funziona
-                    try:
-                        lst = ast.literal_eval(mr[cand]) if isinstance(mr[cand], str) else list(mr[cand])
-                    except Exception:
-                        lst = []
-                for x in lst:
-                    try:
-                        nums.append(float(str(x).replace(",", ".")))
-                    except Exception:
-                        pass
-                if nums:
-                    return nums
-
-        # altrimenti scorro tutti i campi e provo a estrarre numeri
-        for k, v in mr.items():
-            if not k or str(k).lower() in ("id", "name", "nome", "driver", "pilot", "pilota"):
-                continue
-            if v is None:
-                continue
-            # numerico diretto
-            if isinstance(v, (int, float)):
-                nums.append(float(v))
-                continue
-            s = str(v).strip()
-            if not s or s.lower() in INVALID_TOKENS:
-                continue
-
-            # se sembra una lista testuale
-            if s.startswith("[") and s.endswith("]"):
-                try:
-                    lst = parse_list_field(s)
-                except Exception:
-                    try:
-                        lst = ast.literal_eval(s)
-                    except Exception:
-                        lst = []
-                for x in lst:
-                    try:
-                        nums.append(float(str(x).replace(",", ".")))
-                    except Exception:
-                        pass
-                continue
-
-            # estraggo tutti i token numerici presenti (es. "6, 5.5" oppure "6/10")
-            found = re.findall(r"-?\d+(?:[.,]\d+)?", s)
-            if found:
-                for tok in found:
-                    try:
-                        nums.append(float(tok.replace(",", ".")))
-                    except:
-                        pass
-                continue
-
-            # fallback: pulisco e provo a convertire
-            cleaned = re.sub(r"[^\d\.\-\,]+", "", s).replace(",", ".")
-            try:
-                if cleaned not in ("", ".", "-", "-."):
-                    nums.append(float(cleaned))
-            except:
-                pass
-
-        return nums
-
-    def compute_stats_from_marks_record(mr, threshold):
-        votes = extract_votes_from_record(mr)
-        if not votes:
-            return None
-        # rimuovo eventuali NaN/inf errati
-        nums = [float(x) for x in votes if str(x).strip() != ""]
-        if not nums:
-            return None
-        avg = sum(nums) / len(nums)
-        suff_cnt = sum(1 for x in nums if x >= threshold)
-        pct = 100.0 * suff_cnt / len(nums)
-        return {"avg": avg, "count": len(nums), "suff_count": suff_cnt, "pct": pct}
-
-    # seleziona l'indice corretto in base alla categoria
     is_f1 = (category or "").upper().startswith("F1")
     marks_index_primary = marks_idx_f1 if is_f1 else marks_idx_mgp
-    marks_index_other = marks_idx_mgp if is_f1 else marks_idx_f1  # per fallback, se vuoi usarlo
+    marks_index_other = marks_idx_mgp if is_f1 else marks_idx_f1 
 
     pilot_name_to_search = str(pilot_info.get("name") or pilot_info.get("ID") or pilot).strip()
     pilot_key = normalize_key(pilot_name_to_search)
-
-    # ricerca record marks nella tabella corretta; se non trovato prova l'altra come fallback (opzionale)
     marks_row = marks_index_primary.get(pilot_key)
     fallback_used = False
     if marks_row is None:
-        # tentiamo qualche variante (es. cognome, nome + cognome, id numerico, ecc.)
-        # cerco corrispondenze contenute (partial match) nella primary index
         for k in marks_index_primary.keys():
             if pilot_key and pilot_key in k:
                 marks_row = marks_index_primary.get(k)
                 break
-        # fallback nell'altra tabella
         if marks_row is None:
             for k in marks_index_other.keys():
                 if pilot_key and pilot_key in k:
@@ -269,7 +163,6 @@ def show_racer_screen():
             suff_count = stats["suff_count"]
             suff_percent = stats["pct"]
 
-    # colore a gradiente tra bordeaux (media=4.5) e verde forte (media=8.0)
     def hex_to_rgb(h):
         h = h.lstrip("#")
         return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
@@ -298,17 +191,14 @@ def show_racer_screen():
 
     avg_hex = avg_to_hex(avg_value)
 
-    # opzionale: mostra un piccolo avviso se abbiamo usato il fallback sull'altra tabella
     if fallback_used:
         st.info("Voti trovati nella tabella opposta (fallback). Verifica se il pilota è classificato nella categoria corretta.")
-    # ---------------- fine blocco AVERAGE / MARKS ----------------
 
-    # ---------------- RENDERING ----------------
+    # ---------------- RENDERING -----------------------------------------------------------------------------------------------
     st.header(f"Details — {pilot}")
     st.markdown("### Driver profile")
     c_profile, c_avg = st.columns([0.65, 0.35])
 
-    # profile: stima altezza in modo conservativo per evitare scrollbar
     html_profile = _render_simple_table_html(profile_rows, spacing_px=2, row_padding='4px 10px')
     profile_height, profile_scroll = _estimate_rows_height(profile_rows,
                                                           container_width_px=1000,
@@ -325,7 +215,6 @@ def show_racer_screen():
         BUFFER_PX = 40
         components.html(html_profile, height=profile_height + BUFFER_PX, scrolling=True)
 
-    # Average box
     if avg_value is None:
         avg_display = "N/A"
         votes_text = "No votes" if (category or "").upper().startswith("F1") else "N/A (not F1)"
@@ -354,7 +243,6 @@ def show_racer_screen():
     with c_avg:
         st.markdown(avg_box_html, unsafe_allow_html=True)
 
-    # Donut chart (come prima)
     if suff_percent is None:
         donut_color = "#888888"
     elif suff_percent < 50.0:
@@ -387,7 +275,6 @@ def show_racer_screen():
     c_avg.pyplot(fig)
     plt.close(fig)
 
-    # ----- Season stats -----
     st.markdown("### Season stats")
     stat_keys_f1 = [
         ("Convocations", "convocations"),
@@ -440,7 +327,6 @@ def show_racer_screen():
                                                          per_row_padding_px=0)
     components.html(html_review, height=review_height + BUFFER_PX, scrolling=True)
 
-    # ----- Historical -----
     hist_rows = []
     hist_fields = [
         ("Historical wins", "historical_wins"),
@@ -472,9 +358,8 @@ def show_racer_screen():
                                                      per_row_padding_px=0)
     components.html(html_hist, height=hist_height + BUFFER_PX, scrolling=True)
 
-    # back
     st.markdown("<div style='margin-top:-10px;'></div>", unsafe_allow_html=True)
-    if st.button("Go back to previous", key="go_back_racer"):
+    if st.button("Go back", key="go_back_racer"):
         for k in ("selected_pilot", "selected_driver", "selected_category"):
             st.session_state.pop(k, None)
         st.session_state.screen = (
