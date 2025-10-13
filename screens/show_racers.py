@@ -3,7 +3,7 @@ import html as _html
 import streamlit as st
 import streamlit.components.v1 as components
 import matplotlib.pyplot as plt
-from logic.utilities import (
+from logic.functions import (
     _estimate_rows_height,
     _parse_display_value,
     _count_items_like_list,
