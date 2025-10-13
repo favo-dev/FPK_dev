@@ -176,3 +176,14 @@ def _get_first(qp, k):
         return None
     return v[0] if isinstance(v, (list, tuple)) else v
 
+# -------------------------------------------------------------------------------------------
+
+def is_valid_password(password: str) -> bool:
+    return (
+        len(password) >= 8
+        and any(c.isalpha() for c in password)
+        and any(c.isdigit() for c in password)
+    )
+
+# -------------------------------------------------------------------------------------------
+
