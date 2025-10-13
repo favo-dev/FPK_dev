@@ -14,7 +14,8 @@ from logic.auth import (
     generate_direct_recovery_link_and_send,
     _get_first,
     is_valid_password,
-    _extract_name,    
+    _extract_name,  
+    hex_to_rgb_array,        
     )
 
 # -------------------------------------------------------------------------------------------
@@ -280,14 +281,12 @@ else:
                         st.warning("You shall select 3 MotoGP riders.")
                         st.stop()
 
-                    # 1. Creiamo utente in Supabase Auth e raccogliamo UUID
                     user, success = register(email, password, supabase)
                     if not success or user is None:
                         st.error("Registration failed. Please try again.")
                         st.stop()
                     user_uuid = user.id
 
-                    # 2. Calcoliamo nuovo team_id
                     existing_ids = [
                         t.get("ID") or t.get("id") for t in teams.data if (t.get("ID") or t.get("id") or "").startswith("team")
                     ]
@@ -302,21 +301,12 @@ else:
                         next_number += 1
                         new_team_id = f"team{next_number}"
 
-                    # 3. Convertiamo hex → [R, G, B]
-                    def hex_to_rgb_array(hex_color: str) -> list[int]:
-                        hex_color = (hex_color or "").lstrip("#")
-                        if len(hex_color) != 6:
-                            return [0, 0, 0]
-                        return [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
-
                     main_color = hex_to_rgb_array(main_color_hex)
                     second_color = hex_to_rgb_array(second_color_hex)
 
-                    # 4. Prepariamo le stringhe dei piloti
                     f1_txt = str(f1_selected)
                     moto_txt = str(moto_selected)
 
-                    # 5. Inserimento nella tabella class
                     try:
                         supabase.table("class").insert({
                             "ID": new_team_id,
@@ -345,6 +335,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
