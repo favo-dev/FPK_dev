@@ -19,7 +19,7 @@ from logic.auth import (
     )
 
 # -------------------------------------------------------------------------------------------
-)
+
 from logic.functions import get_supabase_client
 from screens.home import home_screen
 
@@ -334,6 +334,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
