@@ -19,11 +19,25 @@ def callup_screen(user):
 
     def display_race_section(champ_name, champ_code, user_key, callup_key):
         st.subheader(champ_name)
-        st.write(supabase)
 
         if "F1" in champ_code:
-            champ = supabase.from_("championship_f1").select("*").execute().data
-            st.write(champ)
+            champ = supabase.from_("championship_f1").select("*").execute()
+            try:
+                res = supabase.from_("championship_f1").select("*").limit(5).execute()
+            except Exception as e:
+                st.error(f"Query exception: {e}")
+                res = None
+
+            st.write("type(res):", type(res))
+            st.write("raw res:", res)
+
+            data = getattr(res, "data", None) or (res.get("data") if isinstance(res, dict) else None)
+            err = getattr(res, "error", None) or (res.get("error") if isinstance(res, dict) else None)
+            status = getattr(res, "status_code", None) or (res.get("status_code") if isinstance(res, dict) else None)
+
+            st.write("res.data ->", data)
+            st.write("res.error ->", err)
+            st.write("res.status_code ->", status)
             howmany = 0
             for element in champ:
                 if element['number'] >= howmany:
