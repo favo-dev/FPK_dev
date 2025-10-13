@@ -11,7 +11,6 @@ from logic.functions import (
     format_name,
     build_pilot_colors,
     render_table,
-    get_supabase_client,
 )
 import pandas as pd
 import pickle
@@ -22,7 +21,10 @@ import numpy as np
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 
-supabase = get_supabase_client()
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- CALENDAR SCREEN ----------------------------------------------------
 
