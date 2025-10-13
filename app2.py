@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.abspath(CLONE_DIR))
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
-supabase: Client = get_supabase_client()
+supabase = get_supabase_client()
 teams = supabase.table("class").select("*").execute()
 
 STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
@@ -334,6 +334,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
