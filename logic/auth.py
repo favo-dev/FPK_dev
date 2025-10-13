@@ -3,19 +3,7 @@ from gotrue.errors import AuthApiError
 import streamlit as st
 from urllib.parse import urlparse, parse_qs
 
-def register(email, password, supabase):
-    response = supabase.auth.sign_up({"email": email, "password": password})
-    
-    if response.user:
-        st.success("Registration confirmed! We've just sent you a confirmation email.")
-        return response.user, True
-    else:
-        # response.error a volte può essere None -> mettiamo un fallback
-        error_msg = response.error.message if response.error else "Unknown registration error"
-        st.error(error_msg)
-        return None, False
 # -------------------------------------------------------------------------------------------
-
 
 def login(email, password, supabase, teams):
     try:
@@ -32,8 +20,20 @@ def login(email, password, supabase, teams):
 
 # -------------------------------------------------------------------------------------------
 
+def register(email, password, supabase):
+    response = supabase.auth.sign_up({"email": email, "password": password})
+    
+    if response.user:
+        st.success("Registration confirmed! We've just sent you a confirmation email.")
+        return response.user, True
+    else:
+        # response.error a volte può essere None -> mettiamo un fallback
+        error_msg = response.error.message if response.error else "Unknown registration error"
+        st.error(error_msg)
+        return None, False
+        
+# -------------------------------------------------------------------------------------------
 
-# Funzione per il reset password con token
 def reset_password_with_token(supabase, access_token):
     st.title("Reset Password")
 
@@ -58,3 +58,5 @@ def reset_password_with_token(supabase, access_token):
                         st.success("Password aggiornata con successo! Puoi ora effettuare il login.")
                 except Exception as e:
                     st.error(f"Errore durante il reset password: {e}")
+
+# -----------------------------------------------------------------------------------------
