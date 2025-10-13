@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
-from logic.functions import _estimate_rows_height, safe_load_team_list, _render_pilot_buttons, _render_simple_table_html, rgb_to_hex, get_supabase_client
+from logic.functions import _estimate_rows_height, safe_load_team_list, _render_pilot_buttons, _render_simple_table_html, safe_rgb_to_hex, get_supabase_client
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
