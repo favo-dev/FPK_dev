@@ -938,7 +938,6 @@ def render_standings_custom(df, teams, title):
 
 # -------------------------------------------------------------------------------------------
 
-
 def render_badges(data_dict, pilot_colors, category):
     st.markdown("<hr style='margin:20px 0;'>", unsafe_allow_html=True)
     st.markdown('<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px">', unsafe_allow_html=True)
