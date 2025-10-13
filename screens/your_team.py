@@ -4,14 +4,17 @@ import json
 import html as _html
 from supabase import create_client
 import streamlit as st
-from logic.functions import safe_rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value, get_supabase_client
+from logic.functions import safe_rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value
 from screens.show_racers import show_racer_screen
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 
-supabase = get_supabase_client()
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- TEAM SCREEN --------------------------------------------------------
 
