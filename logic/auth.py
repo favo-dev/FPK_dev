@@ -18,10 +18,12 @@ def login(email, password, supabase, teams):
             for team in teams.data:
                 if team.get("mail") == email:
                     return team, True
+            return None, False
         else:
-            return False, False
+            return None, False
     except Exception:
-        return False, False
+        return None, False
+
 
 # -------------------------------------------------------------------------------------------
 
