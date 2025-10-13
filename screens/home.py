@@ -7,16 +7,11 @@ from screens.championship import championship_screen, show_rules_screen
 from screens.show_racers import show_racer_screen
 from screens.racers import racers_screen
 from screens.roll import roll_screen
-from supabase import create_client
-from logic.utilities import go_to_screen
+from logic.functions import go_to_screen, get_supabase_client
 
-
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+# --------------------- HOME SCREEN ----------------------------------------------------
 
 def home_screen(user):
-    # --- Info utente in alto ---
     st.sidebar.markdown(f"""
     <div style="font-size:24px;">
         {user['who']}<br>
@@ -24,14 +19,12 @@ def home_screen(user):
     </div>
     """, unsafe_allow_html=True)
 
-    # --- Inizializzazione session state ---
     if "initialized" not in st.session_state:
         st.session_state.initialized = True
         st.session_state.screen = "team"
         st.session_state.screen_history = []
         st.session_state.nav_selection = "Your team"  
 
-    # --- Mappature tra screen e nomi visualizzati ---
     screen_to_nav = {
         "team": "Your team",
         "standings": "Standings",
@@ -42,7 +35,6 @@ def home_screen(user):
     }
     nav_to_screen = {v: k for k, v in screen_to_nav.items()}
 
-    # --- Aggiorna selezione sidebar ---
     if "nav_selection" not in st.session_state:
         st.session_state.nav_selection = screen_to_nav.get(st.session_state.screen, "Your team")
 
@@ -58,7 +50,6 @@ def home_screen(user):
         st.session_state.screen = nav_to_screen[selection]
         st.rerun()
 
-    # --- Visualizza la pagina corretta ---
     if st.session_state.screen == "team":
         your_team_screen(user)
     elif st.session_state.screen == "callups":
@@ -84,6 +75,7 @@ def home_screen(user):
     elif st.session_state.screen == "racer_detail":
         show_racer_screen()
 
+# --------------------- EXIT SCREEN ----------------------------------------------------
 
 def confirm_exit_screen():
      st.header("Exit Confirmation")
