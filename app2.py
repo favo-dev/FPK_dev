@@ -7,8 +7,7 @@ import streamlit as st
 from supabase import create_client, Client
 from logic.auth import register, login
 from screens.home import home_screen
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import requests
 from cryptography.fernet import Fernet
 
 # --------------------- FUNCTIONS ---------------------------------------------
@@ -24,20 +23,62 @@ def logout():
     st.success("Logout effettuato.")
     st.rerun()
 
-def send_email_sendgrid(to_email: str, subject: str, body_text: str):
-    SENDGRID_API_KEY = os.environ["SENDGRID_API_KEY"]
+def send_email_brevo(to_email: str, subject: str, body_text: str):
+    """
+    Invia email usando Brevo.
+    - Se SUPABASE_FUNCTION_URL e PROXY_SECRET sono presenti, invia la richiesta a quella Function (consigliato).
+    - Altrimenti usa direttamente la Brevo API con BREVO_API_KEY taken from env.
+    """
+    # mittente (puoi configurarlo via env)
     EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@fantapaddock.app")
-    message = Mail(
-        from_email=EMAIL_FROM,
-        to_emails=to_email,
-        subject=subject,
-        plain_text_content=body_text,
-    )
+    FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "Fantapaddock")
+
+    # preferisci chiamare la Supabase Edge Function (proxy)?
+    SUPABASE_FN = os.environ.get("SUPABASE_FUNCTION_URL")
+    PROXY_SECRET = os.environ.get("PROXY_SECRET")
+
+    if SUPABASE_FN and PROXY_SECRET:
+        # Chiamata al proxy su Supabase (Edge Function)
+        try:
+            headers = {
+                "x-proxy-secret": PROXY_SECRET,
+                "Content-Type": "application/json",
+            }
+            payload = {"to": to_email, "subject": subject, "html": body_text}
+            resp = requests.post(SUPABASE_FN, json=payload, headers=headers, timeout=10)
+            resp.raise_for_status()
+            return resp.text
+        except Exception as e:
+            st.error(f"Errore invio email via Supabase Function: {e}")
+            raise
+
+    # fallback -> invio diretto a Brevo (server-side)
+    BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
+    if not BREVO_API_KEY:
+        err = "Nessuna SUPABASE_FUNCTION_URL/proxy trovato e BREVO_API_KEY mancante."
+        st.error(err)
+        raise RuntimeError(err)
+
     try:
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        sg.send(message)
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "api-key": BREVO_API_KEY,
+            "Content-Type": "application/json",
+        }
+        # Brevo accetta htmlContent e textContent
+        payload = {
+            "sender": {"email": EMAIL_FROM, "name": FROM_NAME},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "htmlContent": body_text,
+            "textContent": body_text,
+        }
+        resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
     except Exception as e:
-        st.error(f"Errore invio email: {e}")
+        st.error(f"Errore invio email via Brevo API: {e}")
+        raise
 
 # --------------------- EMAIL CRYPTO ------------------------------------------
 def encrypt_email(email: str) -> str:
@@ -57,9 +98,7 @@ def generate_direct_recovery_link_and_send(email: str):
     STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock.streamlit.app")
 
     supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    resp = supabase_admin.auth.admin.generate_link(
-        {"type": "recovery", "email": email}
-    )
+    resp = supabase_admin.auth.admin.generate_link({"type": "recovery", "email": email})
 
     # --- action_link ---
     link = None
@@ -89,7 +128,7 @@ Se non hai richiesto questo reset, ignora questa email.
 
 — Il team Fantapaddock
 """
-    send_email_sendgrid(email, subject, body)
+    send_email_brevo(email, subject, body)
     return direct_link
 
 # --------------------- SETTINGS ----------------------------------------------
@@ -107,10 +146,34 @@ SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 teams = supabase.table("class").select("*").execute()
 
-st.set_page_config(page_title="FPK 1.0.0 'Vettel'")
+STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
+
+# --------------------- PAGE CONFIG -------------------------------------------
 st.set_page_config(
-    page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL25ld19mYXZpY29uLnN2ZyIsImlhdCI6MTc1ODYzODEzNSwiZXhwIjoxNzkwMTc0MTM1fQ.zNy8m0uD7IWJQ4ruDNeZduQmTgnyBYbibFg3T-8D5fQ"
+    page_title="FPK Dev",
+    page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/icons/FAVLINK_192.png",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
+
+# --------------------- MANIFEST & SERVICE WORKER ------------------------------
+MANIFEST_URL = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/icons/manifest.json"
+SW_URL = f"{STREAMLIT_URL}/app/static/service-worker.js"
+
+st.markdown(f"""
+<link rel="manifest" href="{MANIFEST_URL}">
+<meta name="theme-color" content="#e10600">
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<script>
+if ('serviceWorker' in navigator) {{
+  navigator.serviceWorker.register('{SW_URL}', {{scope: '/app/'}})
+    .then(() => console.log("✅ Service Worker registrato"))
+    .catch(err => console.log("❌ Service Worker error:", err));
+}}
+</script>
+""", unsafe_allow_html=True)
 
 # --------------------- SESSION STATE -----------------------------------------
 for key in [
@@ -197,7 +260,6 @@ def is_valid_password(password: str) -> bool:
         and any(c.isdigit() for c in password)
     )
 
-
 # --------------------- MAIN APP ----------------------------------------------
 if st.session_state.logged_in:
     # 🏠 HOME SCREEN
@@ -205,7 +267,7 @@ if st.session_state.logged_in:
 else:
     # 🔑 LOGIN / REGISTRAZIONE
     st.title("Login / Registration")
-    choice = st.radio("Select:", ["Login", "Registration"])
+    choice = st.radio("Select:", ["Login", "Registration"]) 
 
     # --- Layout a due colonne: immagine a sinistra, form a destra
     col1, col2 = st.columns([1, 2])
@@ -214,7 +276,7 @@ else:
     with col1:
         st.image(
             "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/FM-1.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL0ZNLTEucG5nIiwiaWF0IjoxNzU4NzA2NzI2LCJleHAiOjE3OTAyNDI3MjZ9.x5MLW8w-pm5t3syML6baJDlVjukNoz21880DjZMd3Js",
-            use_container_width=True
+            width='stretch'
         )
 
     # --- Colonna destra: form login o registrazione
@@ -413,5 +475,19 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
