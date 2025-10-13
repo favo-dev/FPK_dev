@@ -15,15 +15,12 @@ from logic.utilities import (
 )
 
 # --------------------- SUPABASE CLIENT --------------------------------------
-
-# Recupera le credenziali dal file .streamlit/secrets.toml
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-
-# Crea il client per connettersi al database Supabase
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 
+# --------------------- SCREENS ----------------------------------------------
 def show_racer_screen():
     # Accept either the canonical selected_pilot or the legacy selected_driver
     pilot = st.session_state.get("selected_pilot") or st.session_state.get("selected_driver")
@@ -70,7 +67,7 @@ def show_racer_screen():
     if not pilot_info:
         st.error(f"Informazioni per il pilota '{pilot}' non trovate.")
         if st.button("Go back"):
-            # puliamo i flag di selezione per evitare che restino attivi
+    # puliamo i flag di selezione per evitare che restino attivi
             for k in ("selected_pilot", "selected_driver", "selected_category"):
                 if k in st.session_state:
                     del st.session_state[k]
@@ -102,63 +99,6 @@ def show_racer_screen():
     ]
     profile_map = profile_map_f1 if (category or "").upper().startswith("F1") else profile_map_mgp
     profile_rows = [(label, _parse_display_value(value)) for label, value in profile_map]
-
-    # ------------------ IMAGE HELPERS ------------------
-    def _find_image_field(info):
-        """
-        Cerca campi comunemente usati per immagini all'interno di pilot_info.
-        Ritorna None se non trova nulla utilizzabile.
-        """
-        candidates = ["photo", "photo_url", "image", "image_url", "avatar", "pic", "picture", "img_url", "profile_pic"]
-        for k in candidates:
-            v = info.get(k)
-            if v:
-                return v
-        # alcuni record potrebbero contenere dict con info immagine
-        for k, v in info.items():
-            if isinstance(v, dict):
-                if "url" in v and v["url"]:
-                    return v["url"]
-                if "publicURL" in v and v["publicURL"]:
-                    return v["publicURL"]
-            # campi che contengono 'http' in stringhe
-            if isinstance(v, str) and ("http://" in v or "https://" in v or v.startswith("data:image/")):
-                return v
-        return None
-
-    def _resolve_supabase_public_url(path_or_url):
-        """
-        Se il valore è una URL la ritorna così com'è.
-        Se sembra essere un path interno (es. 'pilots/123.jpg') prova a comporre
-        una public url usando SUPABASE_URL e il bucket definito in secrets
-        (es. st.secrets['SUPABASE_PILOTS_BUCKET']).
-        Se non riesce ritorna None.
-        """
-        if not path_or_url:
-            return None
-        s = str(path_or_url)
-        s = s.strip()
-        if s.startswith("http://") or s.startswith("https://") or s.startswith("data:image/"):
-            return s
-        # se è un dict serializzato in stringa, proviamo a fare ast.literal_eval in sicurezza
-        try:
-            if s.startswith("{") and "url" in s:
-                parsed = ast.literal_eval(s)
-                if isinstance(parsed, dict) and parsed.get("url"):
-                    return parsed.get("url")
-        except Exception:
-            pass
-        # Se ho un path (es. 'pilots/123.jpg') e ho il bucket nei secrets, compongo la public url
-        bucket = st.secrets.get("SUPABASE_PILOTS_BUCKET")
-        if bucket and s:
-            # SUPABASE_URL normalmente: https://xxxx.supabase.co
-            base = SUPABASE_URL.rstrip("/")
-            return f"{base}/storage/v1/object/public/{bucket}/{s.lstrip('/')}"
-        return None
-
-    # Otteniamo l'url dell'immagine (se disponibile)
-    raw_img = _find_image_field(pilot_info)
-    pilot_image_url = _resolve_supabase_public_url(raw_img)
 
     # ---------------- AVERAGE / MARKS (UNIFICATO per F1 e MGP) ----------------
     # soglia sufficienza fissa
@@ -382,34 +322,10 @@ def show_racer_screen():
                                                           safety_mul=1.05,
                                                           per_row_padding_px=0)
     with c_profile:
-        # creiamo due colonne interne: una per l'immagine, una per la tabella
-        col_img, col_table = st.columns([0.28, 0.72])
         BUFFER_PX = 40
+        components.html(html_profile, height=profile_height + BUFFER_PX, scrolling=True)
 
-        # Colonna immagine: mostra se disponibile, altrimenti placeholder
-        with col_img:
-            if pilot_image_url:
-                try:
-                    # st.image gestisce http(s), data:image/... e bytes
-                    st.image(pilot_image_url, caption=None, use_column_width=False, width=150)
-                except Exception:
-                    # se fallisce st.image, proviamo a mostrare con HTML <img>
-                    img_html = f"<img src='{_html.escape(pilot_image_url)}' style='max-width:150px; width:100%; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.25)'>"
-                    st.markdown(img_html, unsafe_allow_html=True)
-            else:
-                # Placeholder leggero se non c'è immagine
-                placeholder_html = """
-                <div style="width:150px; height:150px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:#2b2b2b; color:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.25);">
-                    <div style="text-align:center; font-size:12px; opacity:0.9;">No image<br>available</div>
-                </div>
-                """
-                st.markdown(placeholder_html, unsafe_allow_html=True)
-
-        # Colonna tabella: la tabella del profilo come prima
-        with col_table:
-            components.html(html_profile, height=profile_height + BUFFER_PX, scrolling=True)
-
-    # Average box (resto del codice invariato)
+    # Average box
     if avg_value is None:
         avg_display = "N/A"
         votes_text = "No votes" if (category or "").upper().startswith("F1") else "N/A (not F1)"
@@ -486,6 +402,7 @@ def show_racer_screen():
     stat_keys_mgp = [
         ("Convocations", "convocations"),
         ("Wins", "wins"),
+        ("Sprint wins", "sprint_wins"),
         ("Pole Positions", "poles"),
         ("Podiums", "podiums"),
         ("DNF", "DNF"),
