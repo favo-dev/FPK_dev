@@ -13,6 +13,10 @@ from logic.auth import (
     decrypt_email,
     generate_direct_recovery_link_and_send,
     _get_first,
+    is_valid_password,
+    )
+
+# -------------------------------------------------------------------------------------------
 )
 from logic.functions import get_supabase_client
 from screens.home import home_screen
@@ -139,15 +143,6 @@ if st.session_state.show_reset_password:
 
                 except Exception as e:
                     st.error(f"Error updating password: {e}")
-
-# -------------------------------------------------------------------------------------------
-
-def is_valid_password(password: str) -> bool:
-    return (
-        len(password) >= 8
-        and any(c.isalpha() for c in password)
-        and any(c.isdigit() for c in password)
-    )
 
 # -------------------------------------------------------------------------------------------
 
@@ -365,6 +360,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
