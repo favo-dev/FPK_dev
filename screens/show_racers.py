@@ -10,7 +10,6 @@ from logic.functions import (
     _count_items_like_list,
     _render_simple_table_html,
     normalize_fullname_for_keys,
-    get_supabase_client,
     compute_stats_from_marks_record,
     avg_to_hex,  
 )
@@ -19,7 +18,10 @@ from logic.functions import (
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 
-supabase = get_supabase_client()
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- RACERS SCREEN ----------------------------------------------------
 
