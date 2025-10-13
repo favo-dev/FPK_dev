@@ -17,8 +17,8 @@ from supabase import create_client
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 
-TABLE_SPACING_PX = 0.5
-DEFAULT_ROW_PADDING = '4px 10px'
+#TABLE_SPACING_PX = 0.5
+#DEFAULT_ROW_PADDING = '4px 10px'
 
 # -------------------------
 # Correzioni manuali globali
