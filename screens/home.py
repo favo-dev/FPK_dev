@@ -9,6 +9,12 @@ from screens.racers import racers_screen
 from screens.roll import roll_screen
 from logic.functions import go_to_screen, get_supabase_client
 
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
+supabase = get_supabase_client()
+
 # --------------------- HOME SCREEN ----------------------------------------------------
 
 def home_screen(user):
