@@ -23,6 +23,7 @@ def callup_screen(user):
 
         if "F1" in champ_code:
             champ = supabase.from_("championship_f1").select("*").execute().data
+            st.write(champ)
             howmany = 0
             for element in champ:
                 if element['number'] >= howmany:
