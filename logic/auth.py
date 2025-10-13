@@ -4,7 +4,7 @@ import subprocess
 from urllib.parse import urlparse, parse_qsl
 import requests
 from cryptography.fernet import Fernet
-from logic.functions import 
+from logic.functions import get_supabase_client
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
