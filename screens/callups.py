@@ -1,9 +1,14 @@
 import streamlit as st
-from supabase import create_client
 from datetime import datetime, timezone
 from logic.functions import normalize_riders, get_supabase_client
 
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
 supabase = get_supabase_client()
+
+# --------------------- CALL-UP SCREEN ----------------------------------------------------
 
 def callup_screen(user):
     if st.session_state.get("force_rerun", False):
@@ -190,6 +195,8 @@ def callup_screen(user):
     """, unsafe_allow_html=True)
 
     display_race_section("MotoGP", "MGP", "MotoGP", "mgp")
+
+    # -------------------------------------------------------------------------------------------
 
     st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("Back to team"):
