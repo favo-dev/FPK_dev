@@ -1,6 +1,7 @@
 import streamlit as st
 import ast
 import pandas as pd
+from supabase import create_client
 import re
 from logic.functions import (
     parse_color_field,
