@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+from supabase import create_client
 import subprocess
 from urllib.parse import urlparse, parse_qsl
 import requests
