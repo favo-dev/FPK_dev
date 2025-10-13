@@ -168,4 +168,11 @@ Se non hai richiesto questo reset, ignora questa email.
     send_email_brevo(email, subject, body)
     return direct_link
 
+# -------------------------------------------------------------------------------------------
+
+def _get_first(qp, k):
+    v = qp.get(k)
+    if v is None:
+        return None
+    return v[0] if isinstance(v, (list, tuple)) else v
 
