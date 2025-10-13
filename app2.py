@@ -14,6 +14,7 @@ from logic.auth import (
     generate_direct_recovery_link_and_send,
     _get_first,
     is_valid_password,
+    _extract_name,    
     )
 
 # -------------------------------------------------------------------------------------------
@@ -216,22 +217,6 @@ else:
                 racers_f1_resp = None
                 racers_moto_resp = None
 
-            def _extract_name(row):
-                if not row or not isinstance(row, dict):
-                    return None
-                return (
-                    row.get("name")
-                    or row.get("Name")
-                    or row.get("nome")
-                    or row.get("full_name")
-                    or row.get("fullName")
-                    or row.get("fullname")
-                    or row.get("display_name")
-                    or row.get("displayName")
-                    or row.get("ID")
-                    or row.get("id")
-                )
-
             f1_options = []
             if racers_f1_resp and getattr(racers_f1_resp, "data", None):
                 for r in racers_f1_resp.data:
@@ -360,6 +345,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
