@@ -19,7 +19,7 @@ def callup_screen(user):
 
     def display_race_section(champ_name, champ_code, user_key, callup_key):
         st.subheader(champ_name)
-        supabase = get_supabase_client()
+        st.write(supabase)
 
         if "F1" in champ_code:
             champ = supabase.from_("championship_f1").select("*").execute().data
