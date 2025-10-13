@@ -1,6 +1,7 @@
 import os
 import sys
 import datetime
+from supabase import create_client
 import streamlit as st
 from logic.functions import hex_to_rgb
 from logic.auth import (
@@ -333,6 +334,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
