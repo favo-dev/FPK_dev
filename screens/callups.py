@@ -23,6 +23,7 @@ def callup_screen(user):
     def display_race_section(champ_name, champ_code, user_key, callup_key):
         st.subheader(champ_name)
 
+
         if "F1" in champ_code:
             champ = supabase.from_("championship_f1").select("*").execute().data
             howmany = 0
@@ -66,8 +67,30 @@ def callup_screen(user):
             </div>
         """, unsafe_allow_html=True)
 
-        if delta.total_seconds() < 0:
+        remaining_seconds = delta.total_seconds()
+        if remaining_seconds < 0:
+       
+            days = hours = minutes = seconds = 0
+            progress = 1.0
+            color_bar = "#dc3545"  
             st.markdown(f"""
+                <div style="
+                    background-color: #444;
+                    border-radius: 20px;
+                    overflow: hidden;
+                    height: 18px;
+                    margin-bottom: 6px;
+                ">
+                    <div style="
+                        width: {100*progress:.1f}%;
+                        height: 100%;
+                        background-color: {color_bar};
+                        transition: width 0.4s ease;
+                    "></div>
+                </div>
+                <div style="color:#ddd; font-weight:600; margin-bottom: 12px;">
+                    Remaining time: {days} days, {hours} hours, {minutes} minutes, {seconds} seconds
+                </div>
                 <div style="
                     background-color: #3a1a1a;
                     color: #ff6666;
@@ -80,6 +103,10 @@ def callup_screen(user):
                 </div>
             """, unsafe_allow_html=True)
             return
+
+        days = delta.days
+        hours, remainder = divmod(delta.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
 
         days = delta.days
         hours, remainder = divmod(delta.seconds, 3600)
