@@ -4,7 +4,7 @@ import json
 import html as _html
 import streamlit as st
 from supabase import create_client
-from logic.functions import rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value, get_supabase_client, make_safe_key
+from logic.functions import rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value, get_supabase_client
 from screens.show_racers import show_racer_screen
 
 # -------------------------------------------------------------------------------------------
@@ -88,6 +88,11 @@ def your_team_screen(user):
             supabase.table("class").update({"second color": color_to_rgb(new_second)}).eq("ID", user["ID"]).execute(); st.success("Second color updated!")
         st.markdown("</div>", unsafe_allow_html=True)
 
+  
+    def morpher(name, prefix, idx):
+        base = re.sub(r"\W+", "_", name).strip("_").lower() or f"r{idx}"
+        return f"{prefix}_{base}_{idx}"
+
     st.subheader("F1 Drivers")
     raw_f1 = user.get("F1", [])
     f1_riders = normalize_riders(raw_f1)
@@ -96,7 +101,7 @@ def your_team_screen(user):
         for i in range(0, len(f1_riders), num_cols):
             cols = st.columns(num_cols)
             for j, r in enumerate(f1_riders[i:i+num_cols]):
-                key = make_safe_key(r, "f1", i+j)
+                key = morpher(r, "f1", i+j)
                 if cols[j].button(r, key=key):
                     st.session_state.screen_history.append(st.session_state.screen)
                     st.session_state.selected_driver = r
@@ -114,7 +119,7 @@ def your_team_screen(user):
         for i in range(0, len(mgp_riders), num_cols):
             cols = st.columns(num_cols)
             for j, r in enumerate(mgp_riders[i:i+num_cols]):
-                key = make_safe_key(r, "mgp", i+j)
+                key = morpher(r, "mgp", i+j)
                 if cols[j].button(r, key=key):
                     st.session_state.screen_history.append(st.session_state.screen)
                     st.session_state.selected_driver = r
