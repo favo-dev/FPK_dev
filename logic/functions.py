@@ -202,7 +202,6 @@ def normalize_category(cat):
 def normalize_fullname_for_keys(name):
         if not isinstance(name, str):
             return ""
-        import unicodedata
         s = unicodedata.normalize("NFC", name).strip()
         if "," in s:
             parts = [p.strip() for p in s.split(",") if p.strip()]
