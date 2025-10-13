@@ -17,9 +17,14 @@ import pickle
 import io
 import numpy as np
 
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
 supabase = get_supabase_client()
 
-# --------------------- CALENDAR SCREEN -------------------------------------
+# --------------------- CALENDAR SCREEN ----------------------------------------------------
+
 def calendar_screen(user):
     races_f1 = supabase.from_("championship_f1").select("*").execute().data or []
     races_mgp = supabase.from_("championship_mgp").select("*").execute().data or []
@@ -32,13 +37,9 @@ def calendar_screen(user):
         race["category"] = "MGP"
         all_races.append(race)
 
-    # --- SANITIZZAZIONE TESTI (fix mojibake / NFC) ---
     for race in all_races:
-        # assicurati che name e circuit siano stringhe e riparale se necessario
         race["name"] = fix_mojibake(race.get("name", race.get("ID", "Unknown Race")))
         race["circuit"] = fix_mojibake(race.get("circuit", "Circuit unknown"))
-        # when_dt sarà costruito dopo
-    # -------------------------------------------------
 
     for race in all_races:
         race["when_dt"] = datetime.strptime(race["when"], "%Y-%m-%d")
@@ -85,7 +86,6 @@ def calendar_screen(user):
                 race_day = race["when_dt"].date()
                 race_tag = race.get("tag")
 
-                # stato come prima...
                 if race_day < today:
                     status_text = "| ✅ Completed"
                 elif today <= race_day <= today + timedelta(days=2):
@@ -97,7 +97,6 @@ def calendar_screen(user):
 
                 cols = st.columns([0.85, 0.15])
                 with cols[0]:
-                    # usa le stringhe già "riparate"
                     st.markdown(
                         f"<div style='margin-left:10px'>📍 <b>[{category}]</b> {race_name} — <i>{circuit}</i> {status_text}</div>",
                         unsafe_allow_html=True,
@@ -117,7 +116,8 @@ def calendar_screen(user):
                             st.session_state.screen = "race_results"
                             st.rerun()
 
-# --------------------- RACE RESULTS SCREEN ---------------------------------
+# --------------------- RACE RESULTS SCREEN ----------------------------------------------------
+
 def race_results_screen(user, race):
     hide_sidebar_style = """
     <style>
@@ -174,10 +174,8 @@ def race_results_screen(user, race):
     else:
         st.info("No race data available.")
 
-    # -------------------------- robust handling for Grand Prix badges --------------------------
     alldata = get_all(race_tag, race["category"])
 
-    # default labels depending on normalized category
     cat_norm = normalize_category(race.get("category") or "")
     if cat_norm == "f1":
         labels = {
@@ -193,7 +191,6 @@ def race_results_screen(user, race):
             "Top speed": "n/a",
         }
 
-    # try to find the GP list under several possible keys
     gp_list = None
     if isinstance(alldata, dict):
         for candidate_key in ("Grand Prix", "grand prix", "grand_prix", "GrandPrix", "GP", "gp"):
@@ -201,19 +198,15 @@ def race_results_screen(user, race):
                 gp_list = alldata[candidate_key]
                 break
 
-    # if gp_list is present and is a sequence, iterate safely
     if gp_list and isinstance(gp_list, (list, tuple)):
         for d in gp_list:
             try:
-                # ensure d is a sequence
                 if not isinstance(d, (list, tuple)):
                     continue
-                # name (index 0)
                 name_fixed = None
                 if len(d) > 0 and d[0] is not None:
                     name_fixed = fix_mojibake(d[0]) if isinstance(d[0], str) else d[0]
 
-                # helper to interpret truthy flags robustly
                 def is_flag_true(val):
                     if val is True:
                         return True
@@ -222,19 +215,15 @@ def race_results_screen(user, race):
                     sval = str(val).strip().lower()
                     return sval in ("1", "true", "yes", "y", "t")
 
-                # Pole position: d[1] == 1
                 if len(d) > 1 and (d[2] == 1 or str(d[1]).strip() == "1") and name_fixed:
                     labels["Pole position"] = name_fixed
 
-                # Fastest lap: d[6] truthy
                 if len(d) > 6 and is_flag_true(d[8]) and name_fixed:
                     labels["Fastest lap"] = name_fixed
 
-                # Driver of the Day: d[8] truthy (F1 only)
                 if "Driver of the Day" in labels and len(d) > 8 and is_flag_true(d[10]) and name_fixed:
                     labels["Driver of the Day"] = name_fixed
 
-                # Fastest pit-stop / Top speed: d[9] truthy
                 if len(d) > 8 and is_flag_true(d[9]) and name_fixed:
                     if "Fastest pit-stop" in labels:
                         labels["Fastest pit-stop"] = name_fixed
@@ -242,13 +231,12 @@ def race_results_screen(user, race):
                         labels["Top speed"] = name_fixed
 
             except Exception as e:
-                # non blocchiamo l'intero rendering per un singolo record malformato
                 print(f"Warning parsing GP row: {e} -- row: {d}")
 
-    # call render_badges always (will show 'n/a' if nothing found)
     if labels:
         render_badges(labels, pilot_colors, race.get("category"))
-    # -----------------------------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------------------------------
 
     if st.button("🔙 Back"):
         st.session_state.screen = "calendar"
