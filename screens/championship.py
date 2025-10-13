@@ -1,13 +1,16 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client
-from logic.functions import _estimate_rows_height, safe_load_team_list, _render_pilot_buttons, _render_simple_table_html, safe_rgb_to_hex, get_supabase_client
+from logic.functions import _estimate_rows_height, safe_load_team_list, _render_pilot_buttons, _render_simple_table_html, safe_rgb_to_hex
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 
-supabase = get_supabase_client()
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- RULES SCREEN ----------------------------------------------------
 
