@@ -35,9 +35,10 @@ CLONE_DIR = "FPK"
 clone_repo(CLONE_DIR, REPO_URL)
 sys.path.insert(0, os.path.abspath(CLONE_DIR))
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
-supabase = get_supabase_client()
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 teams = supabase.table("class").select("*").execute()
 
 STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
@@ -333,6 +334,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
