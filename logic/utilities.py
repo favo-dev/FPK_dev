@@ -794,35 +794,3 @@ def update_user_field(user, field, label):
         del st.session_state[f"{field}_temp"]
 
 # -------------------------------------------------------------------------------------------
-
-def render_badges(data_dict, pilot_colors, category):
-    st.markdown("<hr style='margin:20px 0;'>", unsafe_allow_html=True)
-    st.markdown('<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px">', unsafe_allow_html=True)
-    for label, name in data_dict.items():
-        surname = name.split()[-1] if isinstance(name, str) and name != "n/a" else name
-        color = get_color(name, pilot_colors, category)
-        st.markdown(f"""
-        <div style="background-color:#111111;color:#fff;font-size:0.9em;border-left:4px solid {color};
-                    padding:8px 12px;border-radius:6px;">
-            <strong>{label}:</strong> {surname}
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------------------------
-
-def _render_pilot_buttons(pilot_list, prefix_key, team_id=None):
-    """Renderizza i pulsanti dei piloti in righe responsive (max 4 colonne per riga)."""
-    max_cols = 4
-    for i in range(0, len(pilot_list), max_cols):
-        row = pilot_list[i:i+max_cols]
-        cols = st.columns(len(row))
-        for j, pilot in enumerate(row):
-            pilot_name = str(pilot)
-            key = make_safe_key(prefix_key, team_id or "", i+j, pilot_name)
-            with cols[j]:
-                if st.button(pilot_name, key=key):
-                    st.session_state["selected_pilot"] = pilot_name
-                    st.session_state["selected_category"] = "F1" if prefix_key == "f1" else "MGP"
-                    go_to_screen("pilot_details")
-                    st.rerun()
