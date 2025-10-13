@@ -325,7 +325,6 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
 
-                    # 6. Creiamo righe vuote in calls_f1, calls_mgp, penalty
                     try:
                         supabase.table("calls_f1").insert({"team": new_team_id}).execute()
                         supabase.table("calls_mgp").insert({"team": new_team_id}).execute()
@@ -335,6 +334,7 @@ else:
                         st.stop()
 
                     st.success("Registration successful! Please log in.")
+
 
 
 
