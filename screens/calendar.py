@@ -1,8 +1,6 @@
 import streamlit as st
-from supabase import create_client
 from datetime import datetime, timedelta
-from logic.style import render_table
-from logic.utilities import (
+from logic.functions import (
     normalize_category,
     render_badges,
     fix_mojibake,
@@ -11,16 +9,15 @@ from logic.utilities import (
     get_results,
     format_name,
     build_pilot_colors,
+    render_table,
+    get_supabase_client,
 )
 import pandas as pd
 import pickle
 import io
 import numpy as np
 
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+supabase = get_supabase_client()
 
 # --------------------- CALENDAR SCREEN -------------------------------------
 def calendar_screen(user):
