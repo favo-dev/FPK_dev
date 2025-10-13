@@ -50,7 +50,7 @@ def home_screen(user):
         index=list(screen_to_nav.values()).index(st.session_state.nav_selection)
     )
     logo_url = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL25ld19mYXZpY29uLnN2ZyIsImlhdCI6MTc1ODY0MDMyMiwiZXhwIjoxNzkwMTc2MzIyfQ.9G16n08Io42jvpC8rjVxRf1AzmvRIAAB2gaV_oVSuCI"
-    st.sidebar.image(logo_url, use_container_width=True)
+    st.sidebar.image(logo_url, width='stretch')
     if selection != st.session_state.nav_selection:
         st.session_state.nav_selection = selection
         st.session_state.screen = nav_to_screen[selection]
