@@ -3,12 +3,14 @@ import streamlit.components.v1 as components
 from logic.functions import _estimate_rows_height, safe_load_team_list, _render_pilot_buttons, _render_simple_table_html, rgb_to_hex, get_supabase_client
 
 # -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 
+supabase = get_supabase_client()
 
-# --------------------- SCREENS ----------------------------------------------
+# --------------------- RULES SCREEN ----------------------------------------------------
 
 def show_rules_screen(rules_list, screen_name):
-    """Mostra le regole in un container isolato (iframe)."""
     st.title("Rules for " + ("F1" if screen_name == "rules_f1" else "MotoGP"))
 
     if not rules_list:
@@ -54,25 +56,23 @@ def show_rules_screen(rules_list, screen_name):
         st.session_state.screen = "championship"
         st.rerun()
 
+# --------------------- CHAMPIONSHIP SCREEN ----------------------------------------------------
+
 def championship_screen(user):
-    # Placeholder per il caricamento
     loading_placeholder = st.empty()
     loading_placeholder.info("⏳ Loading...")
 
-    # Carico dati
     teams = supabase.from_("class").select("*").execute().data or []
     not_you = [team for team in teams if team.get("who") != user.get("who")]
     rules_f1 = supabase.from_("rules_f1").select("*").execute().data or []
     rules_mgp = supabase.from_("rules_mgp").select("*").execute().data or []
 
-    # Rimuovo placeholder
     loading_placeholder.empty()
 
     st.title("Other teams")
 
     for team in not_you:
         with st.expander(f"{team.get('name','N/A')} - {team.get('who','N/A')}"):
-            # Colori (barra responsive)
             main_hex = rgb_to_hex(team.get("main color", [0,0,0]))
             second_hex = rgb_to_hex(team.get("second color", [100,100,100]))
             st.markdown(
@@ -84,7 +84,6 @@ def championship_screen(user):
                 unsafe_allow_html=True
             )
 
-            # Info team
             st.markdown(f"**Founded in**: {team.get('foundation', 'N/A')}")
             st.markdown(f"**Location**: {team.get('where', 'N/A')}")
             st.markdown(f"**FF1**: {team.get('ff1', 'N/A')}")
@@ -92,19 +91,16 @@ def championship_screen(user):
             st.markdown(f"**FPK**: {team.get('fm', 'N/A')}")
             st.markdown(f"**Mail:** {team.get('mail','N/A')}")
 
-            # --- F1 team ---
             st.markdown("**F1 team:**")
             f1_team = safe_load_team_list(team.get("F1", []))
             if f1_team:
                 _render_pilot_buttons(f1_team, "f1", team.get('ID'))
 
-            # --- MotoGP team ---
             st.markdown("**MotoGP team:**")
             mgp_team = safe_load_team_list(team.get("MotoGP", []))
             if mgp_team:
                 _render_pilot_buttons(mgp_team, "mgp", team.get('ID'))
 
-    # --- Rules ---
     st.title("Rules")
     col1, col2 = st.columns(2)
     with col1:
