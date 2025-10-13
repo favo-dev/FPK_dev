@@ -187,3 +187,21 @@ def is_valid_password(password: str) -> bool:
 
 # -------------------------------------------------------------------------------------------
 
+def _extract_name(row):
+                if not row or not isinstance(row, dict):
+                    return None
+                return (
+                    row.get("name")
+                    or row.get("Name")
+                    or row.get("nome")
+                    or row.get("full_name")
+                    or row.get("fullName")
+                    or row.get("fullname")
+                    or row.get("display_name")
+                    or row.get("displayName")
+                    or row.get("ID")
+                    or row.get("id")
+                )
+
+# -------------------------------------------------------------------------------------------
+
