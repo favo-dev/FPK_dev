@@ -10,14 +10,16 @@ from logic.functions import (
     build_points_dict,
     load_standings_from_buckets,
     load_table,
-    get_supabase_client,
 )
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 
-supabase = get_supabase_client()
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- STANDINGS SCREEN ----------------------------------------------------
 
