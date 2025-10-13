@@ -1,7 +1,4 @@
-from supabase import create_client, Client
-from gotrue.errors import AuthApiError
 import streamlit as st
-from urllib.parse import urlparse, parse_qs
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
