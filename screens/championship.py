@@ -73,8 +73,8 @@ def championship_screen(user):
 
     for team in not_you:
         with st.expander(f"{team.get('name','N/A')} - {team.get('who','N/A')}"):
-            main_hex = rgb_to_hex(team.get("main color", [0,0,0]))
-            second_hex = rgb_to_hex(team.get("second color", [100,100,100]))
+            main_hex = safe_rgb_to_hex(team.get("main color", [0,0,0]))
+            second_hex = safe_rgb_to_hex(team.get("second color", [100,100,100]))
             st.markdown(
                 f"""
                 <div style='display: flex; align-items: center; gap: 1rem; width:100%;'>
