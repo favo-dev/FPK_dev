@@ -1,54 +1,36 @@
 import streamlit as st
-from supabase import create_client
 import ast
 import pandas as pd
 import re
-from logic.utilities import (
+from logic.functions import (
     parse_color_field,
     render_standings_custom,
     build_normalized_team_set,
     build_points_dict,
     load_standings_from_buckets,
     load_table,
+    get_supabase_client,
 )
 
-# -------------------------
-# Config / Client Supabase
-# -------------------------
-@st.cache_resource
-def get_supabase_client():
-    SUPABASE_URL, SUPABASE_ANON_KEY = st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"]
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 
 supabase = get_supabase_client()
 
+# --------------------- STANDINGS SCREEN ----------------------------------------------------
 
-
-
-# -------------------------
-# Funzione principale (ottimizzata) - sostituisce la precedente standings_screen
-# -------------------------
 def standings_screen(user=None):
-    """
-    Versione ottimizzata con caricamento standings e placeholder
-    """
-    # Placeholder per messaggio di loading
     loading_placeholder = st.empty()
     loading_placeholder.info("⏳ Loading...")
 
-    # Carico standings dai bucket (cached)
     standings_data = load_standings_from_buckets(["F1", "MGP"])
-    #st.write(standings_data)
-
-    # Carico tabelle DB (cached)
+    
     teams = load_table("class")
     pen_list = load_table("penalty")
     rules_f1_list = load_table("rules_f1")
     rules_mgp_list = load_table("rules_mgp")
-
-    # Rimuovo il messaggio di loading
     loading_placeholder.empty()
-    # --- Mappa penalità pre-elaborata ---
     penalty_map = {}
     for item in pen_list:
         team_key = item.get("team") or item.get("team_id") or item.get("ID")
@@ -65,7 +47,6 @@ def standings_screen(user=None):
             "penalty_mgp": to_list(item.get("penalty_mgp", []))
         }
 
-    # penalty points numeriche (fallback se non trovate)
     penalty_points_f1 = next((float(item["value"]) for item in rules_f1_list if item.get("rule") == "Penalty points for late call-ups"), 0.0)
     penalty_points_mgp = next((float(item["value"]) for item in rules_mgp_list if item.get("rule") == "Penalty points for late call-ups"), 0.0)
 
@@ -75,20 +56,17 @@ def standings_screen(user=None):
     standings_mgp = {}
     bucket_map = {"F1": "F1", "MotoGP": "MGP"}
 
-    # --- Prebuild per-race points dictionaries per bucket ---
     per_race_points = {"F1": {}, "MGP": {}}
     for bucket_key, races in standings_data.items():
         for race_tag, race_data in races.items():
             pts_dict = {}
             d1 = build_points_dict(race_data.get("standings"), use_full_name=(bucket_key == "MGP"))
             d2 = build_points_dict(race_data.get("sprint_standings"), use_full_name=(bucket_key == "MGP"))
-            # unisco sommando
             keys = set(d1.keys()) | set(d2.keys())
             for k in keys:
                 pts_dict[k] = d1.get(k, 0) + d2.get(k, 0)
             per_race_points[bucket_key][race_tag] = pts_dict
 
-    # --- Ciclo sui team (lookup O(1) grazie ai set) ---
     for team in teams:
         team_name = team.get("ID") or team.get("id") or team.get("team_id") or team.get("name")
         if not team_name:
@@ -104,11 +82,9 @@ def standings_screen(user=None):
             if isinstance(value, list):
                 return value
             if isinstance(value, str):
-        # supporta stringhe "A, B, C"
                 return [v.strip() for v in value.split(",") if v.strip()]
             return [value]
 
-# Unisco F1 + others in modo sicuro
         f1_items = ensure_list(team.get("F1")) + ensure_list(team.get("others"))
         mgp_items = ensure_list(team.get("MotoGP")) + ensure_list(team.get("others"))
 
@@ -124,7 +100,6 @@ def standings_screen(user=None):
             team_set = team_drivers_f1_set if series == "F1" else team_drivers_mgp_set
 
             for race_tag, race_pts_dict in series_races.items():
-                #st.write(race_pts_dict)
                 pts = sum(race_pts_dict.get(d, 0) for d in team_set)
                 penalty_list = penalty_map.get(team_name, {}).get(penalty_key, [])
                 if race_tag in penalty_list:
@@ -139,7 +114,7 @@ def standings_screen(user=None):
         standings_f1[team_name] = int(total_f1_points)
         standings_mgp[team_name] = int(total_mgp_points)
 
-    # --- Tabelle (output come prima) ---
+
     def create_standings_table(standings_dict, teams_list, series_name):
         rows = []
         for t in teams_list:
@@ -160,7 +135,6 @@ def standings_screen(user=None):
     standings_f1_table = create_standings_table(standings_f1, teams, "F1")
     standings_mgp_table = create_standings_table(standings_mgp, teams, "MotoGP")
 
-    # Combined
     combined_rows = []
     for t in teams:
         id_key = t.get("ID") or t.get("id") or t.get("team_id") or t.get("name")
@@ -178,7 +152,6 @@ def standings_screen(user=None):
         ).clip(lower=0).astype(int)
         standings_combined_table["Gap from leader"] = (leader_points_combined - standings_combined_table["Pts"]).astype(int)
 
-    # --- Renderizzare (usa render_standings_custom definita sopra) ---
     render_standings_custom(standings_f1_table, teams, "FF1")
     st.markdown("<hr style='border:2px solid #000; margin:20px 0;'>", unsafe_allow_html=True)
     render_standings_custom(standings_mgp_table, teams, "FMGP")
