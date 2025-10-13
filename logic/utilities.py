@@ -160,32 +160,6 @@ def _estimate_rows_height(rows,
 
 # -------------------------------------------------------------------------------------------
 
-def rgb_to_hex(color):
-    try:
-        if not color:
-            return "#888888"
-        if isinstance(color, str):
-            s = color.strip()
-            if s.startswith("#") and len(s) in (4, 7):
-                return s
-            nums = re.findall(r"\d{1,3}", s)
-            if len(nums) >= 3:
-                r, g, b = int(nums[0]), int(nums[1]), int(nums[2])
-                return "#{:02x}{:02x}{:02x}".format(r, g, b)
-        if isinstance(color, (list, tuple)) and len(color) >= 3:
-            r, g, b = int(color[0]), int(color[1]), int(color[2])
-            return "#{:02x}{:02x}{:02x}".format(r, g, b)
-        if isinstance(color, dict):
-            keys = {k.lower(): k for k in color.keys()}
-            if {"r", "g", "b"}.issubset(keys):
-                r = int(color[keys["r"]]); g = int(color[keys["g"]]); b = int(color[keys["b"]])
-                return "#{:02x}{:02x}{:02x}".format(r, g, b)
-    except Exception:
-        pass
-    return "#888888"
-
-# -------------------------------------------------------------------------------------------
-
 def safe_load_team_list(raw):
     if isinstance(raw, list):
         return raw
