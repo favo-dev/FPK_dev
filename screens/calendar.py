@@ -238,7 +238,7 @@ def race_results_screen(user, race):
                     labels["Driver of the Day"] = name_fixed
 
                 # Fastest pit-stop / Top speed: d[9] truthy
-                if len(d) > 9 and is_flag_true(d[11]) and name_fixed:
+                if len(d) > 8 and is_flag_true(d[9]) and name_fixed:
                     if "Fastest pit-stop" in labels:
                         labels["Fastest pit-stop"] = name_fixed
                     elif "Top speed" in labels:
@@ -252,6 +252,10 @@ def race_results_screen(user, race):
     if labels:
         render_badges(labels, pilot_colors, race.get("category"))
     # -----------------------------------------------------------------------------------------
+
+    if st.button("🔙 Back"):
+        st.session_state.screen = "calendar"
+        st.rerun()
 
     if st.button("🔙 Back"):
         st.session_state.screen = "calendar"
