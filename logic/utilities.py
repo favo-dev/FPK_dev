@@ -740,39 +740,6 @@ def extract_driver_and_points(elem: Any, f1_mode=True):
         return name, pts
     return None, 0
 
-# Mantengo una versione legacy di sum_points nel caso volessi riusarla
-def sum_points_legacy(category_data, team_drivers, use_full_name=False):
-    """
-    (Legacy) Somma i punti dei piloti in category_data presenti nella squadra.
-    team_drivers: lista o stringa con i piloti della squadra
-    use_full_name: True per MotoGP (match su nome completo), False per F1 (match su cognome)
-    """
-    pts = 0
-    if category_data is None or isinstance(category_data, str):
-        return 0
-
-    team_drivers_clean = clean_team_drivers(team_drivers)
-
-    if use_full_name:
-        normalized_team = [normalize_name(d) for d in team_drivers_clean]
-    else:
-        normalized_team = [normalize_name(d.split()[-1]) for d in team_drivers_clean if isinstance(d, str) and d.strip()]
-
-    manual_corrections = MANUAL_CORRECTIONS
-
-    normalized_team = [manual_corrections.get(n, n) for n in normalized_team]
-
-    for elem in category_data:
-        driver_name, driver_pts = extract_driver_and_points(elem, f1_mode=not use_full_name)
-        if not driver_name:
-            continue
-        driver_name = normalize_name(driver_name)
-        driver_name = manual_corrections.get(driver_name, driver_name)
-        if driver_name in normalized_team:
-            pts += driver_pts      
-            
-    return pts
-
 # -------------------------
 # Funzioni ottimizzate / nuove
 # -------------------------
@@ -943,28 +910,36 @@ def render_standings_custom(df, teams, title):
         """, unsafe_allow_html=True)
 
 def update_user_field(user, field, label):
-    new_val = st.text_input(label, value=user.get(field, ""))
-    if st.button(f"Save {label}", use_container_width=True):
+    # Assicuriamoci che il valore sia in session_state
+    if f"{field}_temp" not in st.session_state:
+        st.session_state[f"{field}_temp"] = user.get(field, "")
+
+    # Text input legato al session_state temporaneo
+    new_val = st.text_input(label, value=st.session_state[f"{field}_temp"], key=f"{field}_input")
+    st.session_state[f"{field}_temp"] = new_val  # aggiorna subito session_state
+
+    if st.button(f"Save {label}", key=f"save_{field}", use_container_width=True):
         if not new_val:
-            st.error(f"Insert a valid {label.lower()}!"); return
+            st.error(f"Insert a valid {label.lower()}!")
+            return
         try:
             upd_resp = supabase.table("class").update({field: new_val}).eq("ID", user["ID"]).execute()
         except Exception as e:
-            st.error(f"Error: {e}"); return
+            st.error(f"Error: {e}")
+            return
+
         resp_err, resp_status = getattr(upd_resp, "error", None), getattr(upd_resp, "status_code", None)
         if resp_err or (resp_status and resp_status >= 400):
-            st.error(f"Error: {resp_err or getattr(upd_resp,'data',None)}"); return
-        try:
-            sel_resp = supabase.table("class").select("*").eq("ID", user["ID"]).single().execute()
-            sel_data, sel_err = getattr(sel_resp, "data", None), getattr(sel_resp, "error", None)
-        except Exception as e:
-            user[field] = new_val; st.success(f"{label} updated!"); st.warning(f"Cannot fetch updated row: {e}"); return
-        if sel_err:
-            user[field] = new_val; st.success(f"{label} updated!"); st.warning(f"SELECT error: {sel_err}")
-        else:
-            row = sel_data if isinstance(sel_data, dict) else (sel_data[0] if sel_data else None)
-            user[field] = row.get(field, new_val) if row else new_val
-            st.success(f"{label} updated!")
+            st.error(f"Error: {resp_err or getattr(upd_resp,'data',None)}")
+            return
+
+        # Aggiorna localmente l'oggetto user
+        user[field] = new_val
+        st.success(f"{label} updated!")
+
+        # Rimuovi temporaneo per future modifiche
+        del st.session_state[f"{field}_temp"]
+
 
 def render_badges(data_dict, pilot_colors, category):
     st.markdown("<hr style='margin:20px 0;'>", unsafe_allow_html=True)
@@ -997,4 +972,3 @@ def _render_pilot_buttons(pilot_list, prefix_key, team_id=None):
                     st.session_state["selected_category"] = "F1" if prefix_key == "f1" else "MGP"
                     go_to_screen("pilot_details")
                     st.rerun()
-
