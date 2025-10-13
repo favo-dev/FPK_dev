@@ -1,6 +1,6 @@
 import ast
 import streamlit as st
-from logic.functions import get_supabase_client()
+from logic.functions import get_supabase_client
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
