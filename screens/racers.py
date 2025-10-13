@@ -1,21 +1,19 @@
 import html as _html
 import streamlit as st
-from supabase import create_client
-from logic.utilities import parse_list_field, normalize_fullname_for_keys
-from logic.style import safe_rgb_to_hex
+from logic.functions import parse_list_field, normalize_fullname_for_keys, safe_rgb_to_hex, get_supabase_client
 
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 
-# ------------------- RACERS SCREEN -------------------
+supabase = get_supabase_client()
+
+
 def racers_screen(user):
     from urllib.parse import quote_plus
 
     st.title("Racers")
 
-    # gestione query params (es. link esterno ?pilot=..)
     q = st.query_params
     if "pilot" in q:
         sel_pilot = q.get("pilot", [""])[0]
@@ -27,12 +25,10 @@ def racers_screen(user):
             st.session_state["screen"] = "pilot_details"
             st.rerun()
 
-    # carico dati
     teams = supabase.from_("class").select("*").execute().data or []
     racers_f1 = supabase.from_("racers_f1").select("*").execute().data or []
     racers_mgp = supabase.from_("racers_mgp").select("*").execute().data or []
 
-    # costruisco mappa pilota -> team FPK dalle tabelle class
     pilot_to_fpk = {}
     for t in teams:
         team_name = t.get("name") or t.get("Name") or ""
@@ -46,7 +42,6 @@ def racers_screen(user):
                     k = normalize_fullname_for_keys(m)
                     pilot_to_fpk[k.lower()] = team_name
 
-    # componimento lista piloti
     all_racers = []
     for r in racers_f1:
         r["_category"] = "F1"
@@ -99,13 +94,11 @@ def racers_screen(user):
 
     rows_sorted = sorted(rows, key=lambda x: x["Valore"], reverse=True)
 
-    # ------------------ FILTRI dentro expander ------------------
     with st.expander("Filters", expanded=False):
         search_name = st.text_input("Search:")
         category_filter = st.selectbox("Category:", options=["All", "F1", "MotoGP"], index=0)
         min_value = st.number_input("Minimum value:", min_value=0, value=0, step=1)
 
-    # fallback (per sicurezza)
     search_name = locals().get("search_name", "") or ""
     category_filter = locals().get("category_filter", "All") or "All"
     min_value = locals().get("min_value", 0) or 0
@@ -120,7 +113,6 @@ def racers_screen(user):
             continue
         filtered_rows.append(r)
 
-    # ------------------ STYLES (sempre fuori dal loop) ------------------
     st.markdown(
         """
     <style>
@@ -140,10 +132,8 @@ def racers_screen(user):
         unsafe_allow_html=True,
     )
 
-    # wrapper container
     st.markdown('<div class="racers-container">', unsafe_allow_html=True)
 
-    # header: st.columns con gli stessi ratio usati per le righe
     left_hcol, btn_hcol = st.columns([0.84, 0.16])
     header_html = (
         '<div class="header-row">'
@@ -162,7 +152,6 @@ def racers_screen(user):
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
-    # loop righe: uso gli stessi ratio per mantenere allineamento
     for i, r in enumerate(filtered_rows):
         row_html = (
             '<div class="row-box">'
