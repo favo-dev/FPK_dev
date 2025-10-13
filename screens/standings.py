@@ -98,8 +98,23 @@ def standings_screen(user=None):
         total_f1_points = 0.0
         total_mgp_points = 0.0
 
-        team_drivers_f1_set = build_normalized_team_set(team.get("F1", []) or [], use_full_name=False)
-        team_drivers_mgp_set = build_normalized_team_set(team.get("MotoGP", []) or [], use_full_name=True)
+        def ensure_list(value):
+            if value is None:
+                return []
+            if isinstance(value, list):
+                return value
+            if isinstance(value, str):
+        # supporta stringhe "A, B, C"
+                return [v.strip() for v in value.split(",") if v.strip()]
+            return [value]
+
+# Unisco F1 + others in modo sicuro
+        f1_items = ensure_list(team.get("F1")) + ensure_list(team.get("others"))
+        mgp_items = ensure_list(team.get("MotoGP")) + ensure_list(team.get("others"))
+
+        team_drivers_f1_set = build_normalized_team_set(f1_items, use_full_name=False)
+        team_drivers_mgp_set = build_normalized_team_set(mgp_items, use_full_name=True)
+
 
         for series in ["F1", "MotoGP"]:
             bucket_key = bucket_map.get(series, "MGP")
