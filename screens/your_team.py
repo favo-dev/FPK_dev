@@ -18,7 +18,7 @@ supabase = get_supabase_client()
 def your_team_screen(user):
     st.header("Your Team")
     st.markdown(
-        f"<div style='width:100%;max-width:900px;height:10px;background:linear-gradient(90deg,{rgb_to_hex(user.get('main color','255,0,0'))},{rgb_to_hex(user.get('second color','0,0,255'))});border-radius:12px;box-shadow:0 3px 8px rgba(0,0,0,.15);margin-bottom:1.5rem'></div>",
+        f"<div style='width:100%;max-width:900px;height:10px;background:linear-gradient(90deg,{safe_rgb_to_hex(user.get('main color','255,0,0'))},{safe_rgb_to_hex(user.get('second color','0,0,255'))});border-radius:12px;box-shadow:0 3px 8px rgba(0,0,0,.15);margin-bottom:1.5rem'></div>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -80,10 +80,10 @@ def your_team_screen(user):
         update_user_field(user, "who", "New name")
         update_user_field(user, "name", "Team name")
         update_user_field(user, "where", "Location")
-        new_main = st.color_picker("Principal color", value=rgb_to_hex(user.get("main color", [255,255,255])))
+        new_main = st.color_picker("Principal color", value=safe_rgb_to_hex(user.get("main color", [255,255,255])))
         if st.button("Save principal color", use_container_width=True):
             supabase.table("class").update({"main color": color_to_rgb(new_main)}).eq("ID", user["ID"]).execute(); st.success("Principal color updated!")
-        new_second = st.color_picker("Second color", value=rgb_to_hex(user.get("second color", [0,0,0])))
+        new_second = st.color_picker("Second color", value=safe_rgb_to_hex(user.get("second color", [0,0,0])))
         if st.button("Save second color", use_container_width=True):
             supabase.table("class").update({"second color": color_to_rgb(new_second)}).eq("ID", user["ID"]).execute(); st.success("Second color updated!")
         st.markdown("</div>", unsafe_allow_html=True)
