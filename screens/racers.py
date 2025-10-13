@@ -1,4 +1,5 @@
 import html as _html
+from supabase import create_client
 import streamlit as st
 from logic.functions import parse_list_field, normalize_fullname_for_keys, safe_rgb_to_hex, get_supabase_client
 
