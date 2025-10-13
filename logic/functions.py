@@ -1079,3 +1079,24 @@ def avg_to_hex(avg):
     g = g1 + (g2 - g1) * t
     b = b1 + (b2 - b1) * t
     return safe_rgb_to_hex((r, g, b))
+
+# -----------------------------------------------------------------------------------------------
+
+def render_table(df):
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:10px;padding:5px 0;font-weight:600;border-bottom:1px solid #ccc;">
+        <div style="width:90px;">Position</div>
+        <div style="flex:1;">Pilot</div>
+        <div style="width:150px;text-align:left;">Performance score</div>
+        <div style="width:80px;text-align:right;">Points</div>
+    </div>
+    """, unsafe_allow_html=True)
+    for _, row in df.iterrows():
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:10px;padding:5px 4px;">
+            <div style="width:90px;">{row['Position']}</div>
+            <div style="flex:1;">{row['Name with Color']}</div>
+            <div style="width:150px;">{row['Performance']}</div>
+            <div style="width:80px;text-align:right;">{row['Points']}</div>
+        </div>
+        """, unsafe_allow_html=True)
