@@ -27,19 +27,15 @@ def league_screen(user):
         .execute()
     )
 
-    if response.error:
-        st.error(f"Error fetching leagues: {response.error.message}")
+    leagues = [item["league"] for item in response.data if item.get("league")]
+    if leagues:
+        for lg in leagues:
+            st.markdown(
+                f"<div style='background:#333;color:white;padding:10px;border-radius:10px;margin-bottom:8px;font-size:1.1rem;text-align:center;box-shadow:0 3px 8px rgba(0,0,0,.2)'>{lg}</div>",
+                unsafe_allow_html=True,
+            )
     else:
-        leagues = [item["league"] for item in response.data if item.get("league")]
-
-        if leagues:
-            for lg in leagues:
-                st.markdown(
-                    f"<div style='background:#333;color:white;padding:10px;border-radius:10px;margin-bottom:8px;font-size:1.1rem;text-align:center;box-shadow:0 3px 8px rgba(0,0,0,.2)'>{lg}</div>",
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.info("You are not enrolled in any league yet.")
+        st.info("You are not enrolled in any league yet.")
 
     st.markdown("---")
 
