@@ -25,9 +25,6 @@ def league_screen(user):
         .eq("UUID", player_uuid)
         .execute()
     )
-    if resp.error:
-        st.error(f"Error fetching teams: {resp.error.message}")
-        return
 
     # estrai id unici delle leghe
     league_ids = list({row.get("league") for row in (resp.data or []) if row.get("league")})
