@@ -14,4 +14,3 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # --------------------- HOME SCREEN ----------------------------------------------------
 
 def league_screen(user):
-  st.write("Siamo al punto giusto")
