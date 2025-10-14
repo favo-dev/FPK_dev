@@ -23,21 +23,27 @@ def league_screen(user):
     teams_rows = supabase.from_("teams").select("league").eq("UUID", player_uuid).execute().data or []
     league_ids = list({row.get("league") for row in teams_rows if row.get("league")})
 
-    # stile (coerente con racers_screen)
+    # stile (coerente con racers_screen) — modificato per intestazione più larga
     st.markdown(
         """
     <style>
       .league-container { font-family: sans-serif; color: #fff; }
-      .header-row { display: flex; gap: 12px; padding: 10px 16px; font-weight: 700; background: #000; color: #fff; border-radius: 10px; align-items:center; }
-      .row-box { display: flex; gap: 16px; padding: 14px 20px; align-items: center; border-radius: 18px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 64px; }
-      .row-box .col-name { flex: 4; font-weight: 700; color: #fff; overflow: visible; text-overflow: ellipsis; white-space: normal; }
-      .row-box .col-location { flex: 3; color: #ddd; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
-      .row-box .col-foundation { flex: 2; color: #bbb; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
-      .row-box .col-members { flex: 1; min-width: 80px; text-align: right; font-weight: 600; color: #fff; margin-right: 8px; }
+      .header-row { display: flex; gap: 16px; padding: 12px 20px; font-weight: 700; background: #000; color: #fff; border-radius: 12px; align-items:center; }
+      .row-box { display: flex; gap: 18px; padding: 16px 22px; align-items: center; border-radius: 18px; margin: 12px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 76px; }
+      .row-box .col-name { flex: 5; font-weight: 700; color: #fff; overflow: visible; text-overflow: ellipsis; white-space: normal; }
+      .row-box .col-location { flex: 4; color: #ddd; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
+      .row-box .col-foundation { flex: 3; color: #bbb; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
+      /* rendiamo Members più stabile: non si riduce sotto 120px */
+      .row-box .col-members { flex: 0 0 120px; text-align: right; font-weight: 600; color: #fff; margin-right: 8px; }
+      /* header column sizing: coerente con le righe */
+      .header-row .h-col { padding: 0 10px; }
+      .header-row .h-name { flex: 5; }
+      .header-row .h-location { flex: 4; }
+      .header-row .h-foundation { flex: 3; }
+      .header-row .h-members { flex: 0 0 120px; text-align:right; }
       div.stButton > button { padding: 6px 10px !important; border-radius: 14px !important; min-width: 80px; white-space: nowrap; font-weight: 600; height: 32px; line-height: 16px; }
-      .stButton { display: flex; align-items: center; justify-content: flex-end; height: 64px; }
+      .stButton { display: flex; align-items: center; justify-content: flex-end; height: 76px; }
       .no-results { color: #ddd; padding: 12px 0; }
-      .header-row .h-col { padding: 0 8px; }
     </style>
         """,
         unsafe_allow_html=True,
@@ -46,18 +52,19 @@ def league_screen(user):
     st.markdown('<div class="league-container">', unsafe_allow_html=True)
 
     # intestazione tabella (solo header — il titolo "Your leagues" è già scritto sopra)
-    left_hcol, btn_hcol = st.columns([0.84, 0.16])
+    # aumentiamo lo spazio orizzontale principale rispetto alla colonna dei pulsanti
+    left_hcol, btn_hcol = st.columns([0.92, 0.08])
     header_html = (
         '<div class="header-row">'
         '<div style="width:40px"></div>'
-        '<div class="h-col" style="flex:4">Name</div>'
-        '<div class="h-col" style="flex:3">Location</div>'
-        '<div class="h-col" style="flex:2">Foundation</div>'
-        '<div class="h-col" style="flex:1; text-align:right; min-width:80px">Members</div>'
+        '<div class="h-col h-name">Name</div>'
+        '<div class="h-col h-location">Location</div>'
+        '<div class="h-col h-foundation">Foundation</div>'
+        '<div class="h-col h-members">Members</div>'
         '</div>'
     )
     left_hcol.markdown(header_html, unsafe_allow_html=True)
-    btn_hcol.markdown('<div style="height:64px;display:flex;align-items:center;justify-content:center;font-weight:700"></div>', unsafe_allow_html=True)
+    btn_hcol.markdown('<div style="height:76px;display:flex;align-items:center;justify-content:center;font-weight:700"></div>', unsafe_allow_html=True)
 
     if not league_ids:
         st.markdown('<div class="no-results">You are not enrolled in any league yet.</div>', unsafe_allow_html=True)
@@ -77,8 +84,8 @@ def league_screen(user):
         # prova a prendere i dettagli della lega (supporta più nomi di campo)
         league_data = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute().data or []
         if not league_data:
-            # se non trovato per id, prova per campo 'ID' o per nome
-            league_data = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute().data or []
+            # se non trovato per id, prova per campo 'id' o per nome
+            league_data = supabase.from_("leagues").select("*").eq("id", lid).limit(1).execute().data or []
             if not league_data:
                 league_data = supabase.from_("leagues").select("*").eq("name", lid).limit(1).execute().data or []
 
@@ -93,7 +100,7 @@ def league_screen(user):
             location = "N/A"
             foundation = "N/A"
 
-        # conta i membri nella tabella 'class_new' per la league considerata
+        # conta i membri nella tabella 'teams' per la league considerata
         class_rows = supabase.from_("teams").select("who").eq("league", lid).execute().data or []
         members_count = len(class_rows)
 
@@ -108,7 +115,7 @@ def league_screen(user):
     # ordina (opzionale) per numero membri desc
     rows_sorted = sorted(rows, key=lambda x: x["members"], reverse=True)
 
-    # render righe in stile simile a racers_screen
+    # render righe in stile simile a racers_screen (con colonne più larghe)
     for i, r in enumerate(rows_sorted):
         row_html = (
             '<div class="row-box">'
@@ -120,7 +127,7 @@ def league_screen(user):
             '</div>'
         )
 
-        left_col, btn_col = st.columns([0.84, 0.16])
+        left_col, btn_col = st.columns([0.92, 0.08])
         left_col.markdown(row_html, unsafe_allow_html=True)
 
         # bottone Info per aprire dettaglio lega
@@ -143,3 +150,4 @@ def league_screen(user):
         st.write("→ Join a new league (coming soon)")
     elif choice == "Create":
         st.write("→ Create your own league (coming soon)")
+
