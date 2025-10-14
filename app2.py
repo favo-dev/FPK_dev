@@ -20,7 +20,7 @@ from logic.auth import (
 
 # -------------------------------------------------------------------------------------------
 
-from screens.home import home_screen
+from screens.select_league import league_screen
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
@@ -242,6 +242,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
