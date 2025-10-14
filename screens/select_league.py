@@ -60,7 +60,7 @@ def league_screen(user):
             # conta i membri: numero di teams che hanno teams.league == lid
             members_resp = (
                 supabase.table("teams")
-                .select("ID")
+                .select("who")
                 .eq("league", lid)
                 .execute()
             )
