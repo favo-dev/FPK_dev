@@ -39,7 +39,7 @@ def league_screen(user):
             league_resp = (
                 supabase.table("leagues")
                 .select("*")
-                .eq("id", lid)
+                .eq("ID", lid)
                 .limit(1)
                 .execute()
             )
@@ -57,7 +57,7 @@ def league_screen(user):
             else:
                 league = league_resp.data[0]
                 # tenta di recuperare i campi con fallback
-                name = league.get("name") or league.get("id") or str(lid)
+                name = league.get("name") or league.get("ID") or str(lid)
                 # la colonna 'where' potrebbe avere nome riservato; usiamo .get
                 location = league.get("where") or league.get("location") or "N/A"
                 foundation = league.get("foundation") or league.get("founded") or "N/A"
@@ -65,7 +65,7 @@ def league_screen(user):
             # conta i membri: numero di teams che hanno teams.league == lid
             members_resp = (
                 supabase.table("teams")
-                .select("id")
+                .select("who")
                 .eq("league", lid)
                 .execute()
             )
