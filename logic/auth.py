@@ -65,21 +65,13 @@ def logout():
 # -------------------------------------------------------------------------------------------
 
 def send_email_brevo(to_email: str, subject: str, body_text: str):
-    """
-    Invia email usando Brevo.
-    - Se SUPABASE_FUNCTION_URL e PROXY_SECRET sono presenti, invia la richiesta a quella Function (consigliato).
-    - Altrimenti usa direttamente la Brevo API con BREVO_API_KEY taken from env.
-    """
-    # mittente (puoi configurarlo via env)
     EMAIL_FROM = os.environ.get("EMAIL_FROM", "noreply@fantapaddock.app")
     FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "Fantapaddock")
 
-    # preferisci chiamare la Supabase Edge Function (proxy)?
     SUPABASE_FN = os.environ.get("SUPABASE_FUNCTION_URL")
     PROXY_SECRET = os.environ.get("PROXY_SECRET")
 
     if SUPABASE_FN and PROXY_SECRET:
-        # Chiamata al proxy su Supabase (Edge Function)
         try:
             headers = {
                 "x-proxy-secret": PROXY_SECRET,
@@ -93,7 +85,6 @@ def send_email_brevo(to_email: str, subject: str, body_text: str):
             st.error(f"Errore invio email via Supabase Function: {e}")
             raise
 
-    # fallback -> invio diretto a Brevo (server-side)
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
     if not BREVO_API_KEY:
         err = "Nessuna SUPABASE_FUNCTION_URL/proxy trovato e BREVO_API_KEY mancante."
@@ -106,7 +97,6 @@ def send_email_brevo(to_email: str, subject: str, body_text: str):
             "api-key": BREVO_API_KEY,
             "Content-Type": "application/json",
         }
-        # Brevo accetta htmlContent e textContent
         payload = {
             "sender": {"email": EMAIL_FROM, "name": FROM_NAME},
             "to": [{"email": to_email}],
