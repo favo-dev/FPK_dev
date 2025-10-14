@@ -44,7 +44,7 @@ def league_screen(user):
                 .execute()
             )
 
-            elif not league_resp.data:
+            if not league_resp.data:
                 # se non trova per id, usa il valore raw (potrebbe essere già un nome)
                 name = str(lid)
                 location = "N/A"
