@@ -20,22 +20,53 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 def your_team_screen(user):
     st.header("Your Team")
+
     st.markdown(
         f"<div style='width:100%;max-width:900px;height:10px;background:linear-gradient(90deg,{safe_rgb_to_hex(user.get('main color','255,0,0'))},{safe_rgb_to_hex(user.get('second color','0,0,255'))});border-radius:12px;box-shadow:0 3px 8px rgba(0,0,0,.15);margin-bottom:1.5rem'></div>",
         unsafe_allow_html=True,
     )
+
     st.markdown(
-        f"<div style='max-width:700px;background:#333;border-radius:14px;padding:20px;color:white;font-size:1.2rem;display:flex;justify-content:space-around;margin-bottom:1.8rem;box-shadow:0 4px 10px rgba(0,0,0,.4)'><div><strong>Founded in:</strong> {user.get('foundation','N/A')}</div><div><strong>Location:</strong> {user.get('where','N/A')}</div></div>",
+        f"""
+        <div style='max-width:700px;
+                    background:#333;
+                    border-radius:14px;
+                    padding:20px;
+                    color:white;
+                    font-size:1.2rem;
+                    display:flex;
+                    justify-content:space-around;
+                    margin-bottom:1.8rem;
+                    box-shadow:0 4px 10px rgba(0,0,0,.4)'>
+            <div><strong>Founded in:</strong> {user.get('foundation','N/A')}</div>
+            <div><strong>League:</strong> {user.get('league','N/A')}</div>
+            <div><strong>Location:</strong> {user.get('where','N/A')}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
+
     st.markdown(
-        f"<div style='max-width:700px;background:#333;border-radius:14px;padding:20px;color:white;font-size:1.2rem;display:flex;justify-content:space-around;margin-bottom:1.8rem;box-shadow:0 4px 10px rgba(0,0,0,.4)'><div><strong>League:</strong> {user.get('league','N/A')}</div><div><strong>Location:</strong> {user.get('where','N/A')}</div></div>",
+        f"""
+        <div style='max-width:900px;
+                    background:#f9f9f9;
+                    border-radius:14px;
+                    box-shadow:0 4px 12px rgba(0,0,0,.07);
+                    padding:20px;
+                    display:grid;
+                    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+                    gap:18px;
+                    font-size:1.1rem;
+                    color:#222;
+                    margin-bottom:2.5rem'>
+            <div><strong>FF1:</strong> {user.get('ff1','N/A')}</div>
+            <div><strong>FMGP:</strong> {user.get('fmgp','N/A')}</div>
+            <div><strong>FPK:</strong> {user.get('fm','N/A')}</div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-    st.markdown(
-        f"<div style='max-width:900px;background:#f9f9f9;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,.07);padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;font-size:1.1rem;color:#222;margin-bottom:2.5rem'><div><strong>FF1:</strong> {user.get('ff1','N/A')}</div><div><strong>FMGP:</strong> {user.get('fmgp','N/A')}</div><div><strong>FPK:</strong> {user.get('fm','N/A')}</div></div>",
-        unsafe_allow_html=True,
-    )
+
 
     st.session_state.setdefault("selected_driver", None)
     st.session_state.setdefault("customizing", False)
