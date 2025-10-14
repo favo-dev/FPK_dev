@@ -142,7 +142,7 @@ def league_screen(user):
         left_col.markdown(row_html, unsafe_allow_html=True)
 
         key = f"open_league_{i}_{r['id']}"
-        if btn_col.button("Info", key=key):
+        if btn_col.button("Go to", key=key):
             st.session_state["selected_league"] = r["id"]
             hist = st.session_state.get("screen_history", [])
             hist.append("leagues")
