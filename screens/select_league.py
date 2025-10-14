@@ -75,7 +75,7 @@ def league_screen(user):
     rows = []
     for lid in league_ids:
         # prova a prendere i dettagli della lega (supporta più nomi di campo)
-        league_data = supabase.from_("leagues").select("*").eq("id", lid).limit(1).execute().data or []
+        league_data = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute().data or []
         if not league_data:
             # se non trovato per id, prova per campo 'ID' o per nome
             league_data = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute().data or []
@@ -94,7 +94,7 @@ def league_screen(user):
             foundation = "N/A"
 
         # conta i membri nella tabella 'class_new' per la league considerata
-        class_rows = supabase.from_("class_new").select("id").eq("league", lid).execute().data or []
+        class_rows = supabase.from_("class_new").select("who").eq("league", lid).execute().data or []
         members_count = len(class_rows)
 
         rows.append({
