@@ -17,9 +17,6 @@ from logic.auth import (
     is_valid_password,
     _extract_name,          
     )
-
-# -------------------------------------------------------------------------------------------
-
 from screens.select_league import league_screen
 
 # -------------------------------------------------------------------------------------------
@@ -149,7 +146,7 @@ if st.session_state.show_reset_password:
 # -------------------------------------------------------------------------------------------
 
 if st.session_state.logged_in:
-    select_league_screen(st.session_state.user)
+    league_screen(st.session_state.user)
 else:
     st.title("Login / Registration")
     choice = st.radio("Select:", ["Login", "Registration"]) 
@@ -242,6 +239,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
