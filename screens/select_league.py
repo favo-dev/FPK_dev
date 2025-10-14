@@ -23,7 +23,7 @@ def league_screen(user):
     teams_rows = supabase.from_("teams").select("league").eq("UUID", player_uuid).execute().data or []
     league_ids = list({row.get("league") for row in teams_rows if row.get("league")})
 
-    # stile (coerente con racers_screen) — modificato per intestazione più larga
+    # stile aggiornato (larghezze migliorate + pulsante Info centrato e distanziato)
     st.markdown(
         """
     <style>
@@ -33,16 +33,34 @@ def league_screen(user):
       .row-box .col-name { flex: 5; font-weight: 700; color: #fff; overflow: visible; text-overflow: ellipsis; white-space: normal; }
       .row-box .col-location { flex: 4; color: #ddd; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
       .row-box .col-foundation { flex: 3; color: #bbb; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
-      /* rendiamo Members più stabile: non si riduce sotto 120px */
       .row-box .col-members { flex: 0 0 120px; text-align: right; font-weight: 600; color: #fff; margin-right: 8px; }
-      /* header column sizing: coerente con le righe */
+
+      /* header column sizing */
       .header-row .h-col { padding: 0 10px; }
       .header-row .h-name { flex: 5; }
       .header-row .h-location { flex: 4; }
       .header-row .h-foundation { flex: 3; }
       .header-row .h-members { flex: 0 0 120px; text-align:right; }
-      div.stButton > button { padding: 6px 10px !important; border-radius: 14px !important; min-width: 80px; white-space: nowrap; font-weight: 600; height: 32px; line-height: 16px; }
-      .stButton { display: flex; align-items: center; justify-content: flex-end; height: 76px; padding-right: 24px;}
+
+      /* bottone Info perfettamente centrato e non sovrapposto */
+      .stButton { 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          height: 76px; 
+          margin-left: 12px; 
+          margin-right: 12px;
+      }
+      div.stButton > button { 
+          padding: 6px 14px !important; 
+          border-radius: 14px !important; 
+          min-width: 90px; 
+          white-space: nowrap; 
+          font-weight: 600; 
+          height: 36px; 
+          line-height: 16px; 
+      }
+
       .no-results { color: #ddd; padding: 12px 0; }
     </style>
         """,
@@ -51,9 +69,8 @@ def league_screen(user):
 
     st.markdown('<div class="league-container">', unsafe_allow_html=True)
 
-    # intestazione tabella (solo header — il titolo "Your leagues" è già scritto sopra)
-    # aumentiamo lo spazio orizzontale principale rispetto alla colonna dei pulsanti
-    left_hcol, btn_hcol = st.columns([0.92, 0.08])
+    # intestazione tabella
+    left_hcol, btn_hcol = st.columns([0.90, 0.10])
     header_html = (
         '<div class="header-row">'
         '<div style="width:40px"></div>'
@@ -64,12 +81,11 @@ def league_screen(user):
         '</div>'
     )
     left_hcol.markdown(header_html, unsafe_allow_html=True)
-    btn_hcol.markdown('<div style="height:76px;display:flex;align-items:center;justify-content:center;font-weight:700"></div>', unsafe_allow_html=True)
+    btn_hcol.markdown('<div style="height:76px;"></div>', unsafe_allow_html=True)
 
     if not league_ids:
         st.markdown('<div class="no-results">You are not enrolled in any league yet.</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-        # separatore e opzioni Join/Create
         st.markdown("---")
         choice = st.radio("Select:", ["Join", "Create"])
         if choice == "Join":
@@ -81,10 +97,8 @@ def league_screen(user):
     # costruisci i dati delle righe
     rows = []
     for lid in league_ids:
-        # prova a prendere i dettagli della lega (supporta più nomi di campo)
         league_data = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute().data or []
         if not league_data:
-            # se non trovato per id, prova per campo 'id' o per nome
             league_data = supabase.from_("leagues").select("*").eq("id", lid).limit(1).execute().data or []
             if not league_data:
                 league_data = supabase.from_("leagues").select("*").eq("name", lid).limit(1).execute().data or []
@@ -95,12 +109,10 @@ def league_screen(user):
             location = league.get("where") or league.get("location") or league.get("city") or "N/A"
             foundation = league.get("foundation") or league.get("founded") or league.get("foundation_year") or "N/A"
         else:
-            # fallback se la ricerca non restituisce nulla
             name = str(lid)
             location = "N/A"
             foundation = "N/A"
 
-        # conta i membri nella tabella 'teams' per la league considerata
         class_rows = supabase.from_("teams").select("who").eq("league", lid).execute().data or []
         members_count = len(class_rows)
 
@@ -112,10 +124,9 @@ def league_screen(user):
             "members": members_count
         })
 
-    # ordina (opzionale) per numero membri desc
     rows_sorted = sorted(rows, key=lambda x: x["members"], reverse=True)
 
-    # render righe in stile simile a racers_screen (con colonne più larghe)
+    # render righe
     for i, r in enumerate(rows_sorted):
         row_html = (
             '<div class="row-box">'
@@ -127,13 +138,11 @@ def league_screen(user):
             '</div>'
         )
 
-        left_col, btn_col = st.columns([0.92, 0.08])
+        left_col, btn_col = st.columns([0.90, 0.10])
         left_col.markdown(row_html, unsafe_allow_html=True)
 
-        # bottone Info per aprire dettaglio lega
         key = f"open_league_{i}_{r['id']}"
         if btn_col.button("Info", key=key):
-            # imposta stato e vai al dettaglio (pattern simile a racers_screen)
             st.session_state["selected_league"] = r["id"]
             hist = st.session_state.get("screen_history", [])
             hist.append("leagues")
@@ -143,7 +152,6 @@ def league_screen(user):
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # separatore e opzioni Join/Create
     st.markdown("---")
     choice = st.radio("Select:", ["Join", "Create"])
     if choice == "Join":
