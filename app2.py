@@ -30,8 +30,8 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
     raise ValueError("GITHUB_TOKEN non trovato nelle variabili d'ambiente!")
 
-REPO_URL = f"https://{GITHUB_TOKEN}@github.com/andreafavalli/FPK.git"
-CLONE_DIR = "FPK"
+REPO_URL = f"https://{GITHUB_TOKEN}@github.com/favo-dev/FPK_dev.git"
+CLONE_DIR = "FPK_dev"
 clone_repo(CLONE_DIR, REPO_URL)
 sys.path.insert(0, os.path.abspath(CLONE_DIR))
 
@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.abspath(CLONE_DIR))
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-teams = supabase.table("class").select("*").execute()
+teams = supabase.table("class_new").select("*").execute()
 
 STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
 
@@ -149,17 +149,13 @@ if st.session_state.show_reset_password:
 # -------------------------------------------------------------------------------------------
 
 if st.session_state.logged_in:
-    # 🏠 HOME SCREEN
-    home_screen(st.session_state.user)
+    select_league_screen(st.session_state.user)
 else:
-    # 🔑 LOGIN / REGISTRAZIONE
     st.title("Login / Registration")
     choice = st.radio("Select:", ["Login", "Registration"]) 
 
-    # --- Layout a due colonne: immagine a sinistra, form a destra
     col1, col2 = st.columns([1, 2])
 
-    # --- Colonna sinistra: immagine sempre visibile
     with col1:
         st.image(
             "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/FM-1.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL0ZNLTEucG5nIiwiaWF0IjoxNzU4NzA2NzI2LCJleHAiOjE3OTAyNDI3MjZ9.x5MLW8w-pm5t3syML6baJDlVjukNoz21880DjZMd3Js",
@@ -208,59 +204,15 @@ else:
                     except Exception as e:
                         st.error(f"Error sending recovery email: {e}")
 
-        else:  # Registration
-            # --- Recupero opzioni piloti da Supabase (prima del form)
-            try:
-                racers_f1_resp = supabase.table("racers_f1").select("*").execute()
-                racers_moto_resp = supabase.table("racers_mgp").select("*").execute()
-            except Exception as e:
-                st.error(f"Errore nel recupero dei piloti: {e}")
-                racers_f1_resp = None
-                racers_moto_resp = None
-
-            f1_options = []
-            if racers_f1_resp and getattr(racers_f1_resp, "data", None):
-                for r in racers_f1_resp.data:
-                    n = _extract_name(r)
-                    if n:
-                        f1_options.append(n)
-
-            moto_options = []
-            if racers_moto_resp and getattr(racers_moto_resp, "data", None):
-                for r in racers_moto_resp.data:
-                    n = _extract_name(r)
-                    if n:
-                        moto_options.append(n)
-
+        else:
             with st.form("registration_form"):
                 name = st.text_input("Your Name", key="reg_name")
-                team_name = st.text_input("Team Name", key="reg_team_name")
                 place = st.text_input("Location", key="reg_place")
-                main_color_hex = st.color_picker("Main Color", "#ff0000", key="reg_main_color")
-                second_color_hex = st.color_picker("Secondary Color", "#0000ff", key="reg_second_color")
-
-                st.markdown("### Select 3 F1 drivers")
-                f1_selected = st.multiselect(
-                    "F1 drivers (select 3)",
-                    options=f1_options,
-                    key="reg_f1_selection",
-                    help="Scegli 3 piloti F1 diversi"
-                )
-
-                st.markdown("### Select 3 MotoGP riders")
-                moto_selected = st.multiselect(
-                    "MotoGP riders (select 3)",
-                    options=moto_options,
-                    key="reg_moto_selection",
-                    help="Scegli 3 piloti MotoGP diversi"
-                )
-
                 email = st.text_input("Email", key="reg_email")
                 password = st.text_input("Password", type="password", key="reg_password")
                 register_submitted = st.form_submit_button("Register")
 
                 if register_submitted:
-                    # validazioni base
                     email_exists = any(team.get("mail") == email for team in teams.data)
                     if email_exists:
                         st.warning("This email is already registered. Please log in instead.")
@@ -273,67 +225,24 @@ else:
                         )
                         st.stop()
 
-                    # controllo selezioni piloti
-                    if len(f1_selected) != 3:
-                        st.warning("You shall select 3 F1 drivers.")
-                        st.stop()
-                    if len(moto_selected) != 3:
-                        st.warning("You shall select 3 MotoGP riders.")
-                        st.stop()
-
                     user, success = register(email, password, supabase)
                     if not success or user is None:
                         st.error("Registration failed. Please try again.")
                         st.stop()
                     user_uuid = user.id
 
-                    existing_ids = [
-                        t.get("ID") or t.get("id") for t in teams.data if (t.get("ID") or t.get("id") or "").startswith("team")
-                    ]
-                    numbers = []
-                    for x in existing_ids:
-                        sx = str(x)
-                        if sx.startswith("team") and sx.replace("team", "").isdigit():
-                            numbers.append(int(sx.replace("team", "")))
-                    next_number = max(numbers) + 1 if numbers else 1
-                    new_team_id = f"team{next_number}"
-                    while any((t.get("ID") == new_team_id or t.get("id") == new_team_id) for t in teams.data):
-                        next_number += 1
-                        new_team_id = f"team{next_number}"
-
-                    main_color = hex_to_rgb_array(main_color_hex)
-                    second_color = hex_to_rgb_array(second_color_hex)
-
-                    f1_txt = str(f1_selected)
-                    moto_txt = str(moto_selected)
-
                     try:
-                        supabase.table("class").insert({
-                            "ID": new_team_id,
+                        supabase.table("class_new").insert({
                             "UUID": user_uuid,
                             "who": name,
-                            "name": team_name,
                             "mail": email,
-                            "main color": main_color,
-                            "second color": second_color,
                             "where": place,
-                            "foundation": datetime.datetime.now().year,
-                            "F1": f1_txt,
-                            "MotoGP": moto_txt
                         }).execute()
                     except Exception as e:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
-
-                    try:
-                        supabase.table("calls_f1").insert({"team": new_team_id}).execute()
-                        supabase.table("calls_mgp").insert({"team": new_team_id}).execute()
-                        supabase.table("penalty").insert({"team": new_team_id}).execute()
-                    except Exception as e:
-                        st.error(f"Errore creazione righe calls/penalty: {e}")
-                        st.stop()
-
                     st.success("Registration successful! Please log in.")
+
 
 
 
