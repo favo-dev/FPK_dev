@@ -42,7 +42,7 @@ def league_screen(user):
       .header-row .h-foundation { flex: 3; }
       .header-row .h-members { flex: 0 0 120px; text-align:right; }
       div.stButton > button { padding: 6px 10px !important; border-radius: 14px !important; min-width: 80px; white-space: nowrap; font-weight: 600; height: 32px; line-height: 16px; }
-      .stButton { display: flex; align-items: center; justify-content: flex-end; height: 76px; }
+      .stButton { display: flex; align-items: center; justify-content: flex-end; height: 76px; padding-right: 24px;}
       .no-results { color: #ddd; padding: 12px 0; }
     </style>
         """,
