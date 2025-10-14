@@ -44,11 +44,6 @@ def league_screen(user):
                 .execute()
             )
 
-            if league_resp.error:
-                # in caso di errore, mostra comunque la raw id
-                name = str(lid)
-                location = "N/A"
-                foundation = "N/A"
             elif not league_resp.data:
                 # se non trova per id, usa il valore raw (potrebbe essere già un nome)
                 name = str(lid)
@@ -69,10 +64,8 @@ def league_screen(user):
                 .eq("league", lid)
                 .execute()
             )
-            if members_resp.error:
-                members = "?"
-            else:
-                members = len(members_resp.data) if members_resp.data else 0
+
+            members = len(members_resp.data) if members_resp.data else 0
 
             # aggiungi riga (Name, Location, Foundation, Members)
             rows_html += (
