@@ -143,8 +143,20 @@ def league_screen(user):
             hist = st.session_state.get("screen_history", [])
             hist.append("leagues")
             st.session_state["screen_history"] = hist
-            st.session_state["screen"] = "league_details"
-            st.rerun()
+            selected_league = st.session_state["selected_league"]
+            resp = supabase.from_("teams") \
+                .select("*") \
+                .eq("UUID", player_uuid) \
+                .eq("league", selected_league) \
+                .limit(1) \
+                .execute()
+
+            rows = resp.data or []
+            if len(rows) > 0:
+                st.session_state["user"] = rows[0]
+            else:
+                st.session_state["user"] = None  
+            home_screen(st.session_state["user"])
 
     st.markdown('</div>', unsafe_allow_html=True)
 
