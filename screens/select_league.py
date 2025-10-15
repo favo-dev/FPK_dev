@@ -9,7 +9,7 @@ from screens.home import home_screen
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-st.session_state.go == False
+st.session_state.go = False
 
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
 def league_screen(user):
