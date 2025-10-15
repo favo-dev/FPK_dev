@@ -41,6 +41,23 @@ teams = supabase.table("class_new").select("*").execute()
 STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
 # -------------------------------------------------------------------------------------------
 
+defaults = {
+    "go": False,
+    "league_visibility": "Public",
+    "league_pw_input": "",
+    "league_name": "",
+    "league_location": "",
+    "team_name": "",
+    "team_location": "",
+    "main_color_hex": "#00CAFF",
+    "second_color_hex": "#FFFFFF",
+    "screen_history": [],
+    "nav_selection": "Your team",
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 st.set_page_config(
     page_title="FPK Dev",
     page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/icons/FAVLINK_192.png",
@@ -239,6 +256,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
