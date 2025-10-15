@@ -102,6 +102,7 @@ def confirm_exit_screen():
      with col1:
          if st.button("Continue", key="confirm_exit_yes"):
              st.session_state.logged_in = False
+             st.session_state.go = False
              st.session_state.screen = "team"  
              st.rerun()
 
