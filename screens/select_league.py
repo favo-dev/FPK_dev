@@ -10,6 +10,9 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+if "go" not in st.session_state:
+    st.session_state.go = False
+
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
 def league_screen(user):
     if st.session_state.go:
