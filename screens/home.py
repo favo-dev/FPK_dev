@@ -84,6 +84,8 @@ def home_screen(user):
         confirm_exit_screen()
     elif st.session_state.screen == "racer_detail":
         show_racer_screen()
+    elif st.session_state.screen == "league":
+        league_screen(user)
 
 # --------------------- EXIT SCREEN ----------------------------------------------------
 
