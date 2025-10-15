@@ -118,7 +118,50 @@ def league_screen(user):
     teams_rows = supabase.from_("teams").select("league").eq("UUID", player_uuid).execute().data or []
     league_ids = list({row.get("league") for row in teams_rows if row.get("league")})
 
-    # --- STYLE (omesso qui per brevità, mantieni il tuo CSS) ---
+    # --- STYLE --------------------------------------------------------------------------
+    st.markdown(
+        """
+    <style>
+      .league-container { font-family: sans-serif; color: #fff; }
+      .header-row { display: flex; gap: 16px; padding: 12px 20px; font-weight: 700; background: #000; color: #fff; border-radius: 12px; align-items:center; }
+      .row-box { display: flex; gap: 18px; padding: 16px 22px; align-items: center; border-radius: 18px; margin: 12px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 76px; }
+      .row-box .col-name { flex: 5; font-weight: 700; color: #fff; overflow: visible; text-overflow: ellipsis; white-space: normal; }
+      .row-box .col-location { flex: 4; color: #ddd; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
+      .row-box .col-foundation { flex: 3; color: #bbb; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
+      .row-box .col-members { flex: 0 0 120px; text-align: right; font-weight: 600; color: #fff; margin-right: 8px; }
+
+      /* header column sizing */
+      .header-row .h-col { padding: 0 10px; }
+      .header-row .h-name { flex: 5; }
+      .header-row .h-location { flex: 4; }
+      .header-row .h-foundation { flex: 3; }
+      .header-row .h-members { flex: 0 0 120px; text-align:right; }
+
+      /* bottone Info perfettamente centrato e non sovrapposto */
+      .stButton { 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          height: 76px; 
+          margin-left: 12px; 
+          margin-right: 12px;
+      }
+      div.stButton > button { 
+          padding: 6px 14px !important; 
+          border-radius: 14px !important; 
+          min-width: 90px; 
+          white-space: nowrap; 
+          font-weight: 600; 
+          height: 36px; 
+          line-height: 16px; 
+      }
+
+      .no-results { color: #ddd; padding: 12px 0; }
+    </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown('<div class="league-container">', unsafe_allow_html=True)
 
     # header
@@ -206,22 +249,32 @@ def league_screen(user):
         # unico form che contiene sia league che team data
         with st.form("create_league_and_team_form"):
             st.write("**League data**")
+            # do set keys for persistence; the radio result is stored in 'league_visibility'
             league_name = st.text_input("League name (ID)", help="Unique identifier of the league", key="league_name")
             league_location = st.text_input("League location", help="City / place", key="league_location")
 
-            # uso la variabile locale visibility per mostrare il campo password dentro il form
+            # use local variable visibility (the widget writes value to session_state too)
             visibility = st.radio("Visibility", ["Public", "Private"], index=0, key="league_visibility")
 
-            # mostra il campo password solo se visibility == "Private"
-            pw_input = ""
-            if visibility == "Private":
-                pw_input = st.text_input("Password for private league", type="password", help="Set a password to allow joining (only for private leagues)", key="league_pw_input")
+            # ALWAYS render password input, but DISABLE it when visibility != "Private".
+            # This avoids the widget appearing/disappearing and makes it immediately editable
+            # when the user selects Private.
+            pw_input = st.text_input(
+                "Password for private league (only if Private)",
+                type="password",
+                help="Set a password to allow joining (only for private leagues)",
+                key="league_pw_input",
+                disabled=(visibility != "Private"),
+            )
 
             st.write("---")
             st.write("**Team data**")
             team_name = st.text_input("Team name", help="Name of your team", key="team_name")
             # preimposta la team_location dal campo di league (ma l'utente può modificarla)
-            team_location = st.text_input("Team location (where)", value=st.session_state.get("league_location", "") or "", help="City / place", key="team_location")
+            team_location = st.text_input("Team location (where)",
+                                         value=st.session_state.get("league_location", "") or "",
+                                         help="City / place",
+                                         key="team_location")
             main_color_hex = st.color_picker("Main color", value="#00CAFF", help="Choose main team color", key="main_color_hex")
             second_color_hex = st.color_picker("Second color", value="#FFFFFF", help="Choose secondary team color", key="second_color_hex")
 
@@ -305,3 +358,4 @@ def league_screen(user):
                                 st.rerun()
                             else:
                                 st.error("League created, but team creation failed.")
+
