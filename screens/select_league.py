@@ -12,7 +12,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
 def league_screen(user):
-    if st.session_state.go == True:
+    if st.session_state.go:
         home_screen(user)
         st.stop()
     st.title("League hub")
