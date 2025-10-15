@@ -13,9 +13,17 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-# init session key
+# init session keys
 if "go" not in st.session_state:
     st.session_state.go = False
+if "league_visibility" not in st.session_state:
+    st.session_state.league_visibility = "Public"
+if "league_pw_input" not in st.session_state:
+    st.session_state.league_pw_input = ""
+# keep other form-related keys initially empty to avoid KeyError
+for k in ("league_name", "league_location", "team_name", "team_location", "main_color_hex", "second_color_hex"):
+    if k not in st.session_state:
+        st.session_state[k] = ""
 
 # -------------------------------------------------------------------------------------------
 # --------------------- UTILITY -------------------------------------------------------------
@@ -41,8 +49,8 @@ def hex_to_rgb(hex_color: str):
 def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, team_location, foundation):
     """
     Crea una riga nella tabella `teams`.
-    Nota: qui usiamo i nomi di colonna esatti che hai in Supabase:
-    "main color" e "second color" (con spazio).
+    Usa i nomi di colonna esatti (con spazio) che hai in Supabase:
+    "main color" e "second color".
     """
     if not user:
         st.error("User non disponibile. Impossibile creare la squadra.")
@@ -69,13 +77,13 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         st.error("Colore secondario non valido. Usa il color picker.")
         return None
 
-    # **ATTENZIONE**: qui le chiavi corrispondono esattamente ai nomi delle colonne in supabase
     new_team = {
         "who": user.get("who"),
         "name": team_name.strip(),
         "mail": user.get("mail"),
-        "main color": main_color_rgb,       # <-- colonna 'main color' (con spazio)
-        "second color": second_color_rgb,   # <-- colonna 'second color' (con spazio)
+        # ATTENZIONE: nomi colonna con spazi come nel tuo DB
+        "main color": main_color_rgb,
+        "second color": second_color_rgb,
         "where": team_location.strip(),
         "foundation": foundation,
         "UUID": user.get("UUID"),
@@ -95,7 +103,6 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         inserted_row = new_team
 
     st.success(f"Team '{team_name}' created")
-    # aggiorna lo user in session con la riga del team creata (utile per la home)
     st.session_state["user"] = inserted_row
     return inserted_row
 
@@ -246,35 +253,37 @@ def league_screen(user):
     elif choice == "Create":
         st.markdown("### Create league & team")
 
-        # unico form che contiene sia league che team data
+        # ---- Radio FUORI dal form: immediata sincronizzazione
+        # il risultato viene memorizzato in st.session_state.league_visibility
+        visibility = st.radio("Visibility", ["Public", "Private"], index=0, key="league_visibility")
+
+        # unico form che contiene i campi della league e della team (ma la radio è fuori)
         with st.form("create_league_and_team_form"):
             st.write("**League data**")
-            # do set keys for persistence; the radio result is stored in 'league_visibility'
             league_name = st.text_input("League name (ID)", help="Unique identifier of the league", key="league_name")
             league_location = st.text_input("League location", help="City / place", key="league_location")
 
-            # use local variable visibility (the widget writes value to session_state too)
-            visibility = st.radio("Visibility", ["Public", "Private"], index=0, key="league_visibility")
-
-            # ALWAYS render password input, but DISABLE it when visibility != "Private".
-            # This avoids the widget appearing/disappearing and makes it immediately editable
-            # when the user selects Private.
-            pw_input = st.text_input(
-                "Password for private league (only if Private)",
-                type="password",
-                help="Set a password to allow joining (only for private leagues)",
-                key="league_pw_input",
-                disabled=(visibility != "Private"),
-            )
+            # renderizza il campo password SOLO se la visibility impostata (fuori) è Private
+            if st.session_state.get("league_visibility", "Public") == "Private":
+                pw_input = st.text_input(
+                    "Password for private league",
+                    type="password",
+                    help="Set a password to allow joining (only for private leagues)",
+                    key="league_pw_input"
+                )
+            else:
+                # assicura che non ci siano valori residui
+                st.session_state["league_pw_input"] = ""
 
             st.write("---")
             st.write("**Team data**")
             team_name = st.text_input("Team name", help="Name of your team", key="team_name")
-            # preimposta la team_location dal campo di league (ma l'utente può modificarla)
-            team_location = st.text_input("Team location (where)",
-                                         value=st.session_state.get("league_location", "") or "",
-                                         help="City / place",
-                                         key="team_location")
+            team_location = st.text_input(
+                "Team location (where)",
+                value=st.session_state.get("league_location", "") or "",
+                help="City / place",
+                key="team_location"
+            )
             main_color_hex = st.color_picker("Main color", value="#00CAFF", help="Choose main team color", key="main_color_hex")
             second_color_hex = st.color_picker("Second color", value="#FFFFFF", help="Choose secondary team color", key="second_color_hex")
 
@@ -282,7 +291,7 @@ def league_screen(user):
 
         # Quando l'utente preme Create (submit_all è True), valida e salva
         if submit_all:
-            # leggere i valori dal form (usiamo i valori di session perché i widget hanno key)
+            # leggere i valori dal form attraverso session_state (widget hanno key)
             league_name_val = st.session_state.get("league_name", "").strip()
             league_location_val = st.session_state.get("league_location", "").strip()
             visibility_val = st.session_state.get("league_visibility", "Public")
@@ -358,4 +367,5 @@ def league_screen(user):
                                 st.rerun()
                             else:
                                 st.error("League created, but team creation failed.")
+
 
