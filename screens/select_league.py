@@ -2,6 +2,7 @@ import html as _html
 import streamlit as st
 from supabase import create_client, Client
 from logic.functions import go_to_screen
+from screens.home import home_screen
 
 # -------------------------------------------------------------------------------------------
 # --------------------- SUPABASE CLIENT -----------------------------------------------------
@@ -19,11 +20,9 @@ def league_screen(user):
         st.warning("UUID not found for this user.")
         return
 
-    # prendi tutte le league collegate al giocatore nella tabella 'teams'
     teams_rows = supabase.from_("teams").select("league").eq("UUID", player_uuid).execute().data or []
     league_ids = list({row.get("league") for row in teams_rows if row.get("league")})
 
-    # stile aggiornato (larghezze migliorate + pulsante Info centrato e distanziato)
     st.markdown(
         """
     <style>
@@ -69,7 +68,6 @@ def league_screen(user):
 
     st.markdown('<div class="league-container">', unsafe_allow_html=True)
 
-    # intestazione tabella
     left_hcol, btn_hcol = st.columns([0.90, 0.10])
     header_html = (
         '<div class="header-row">'
@@ -94,7 +92,6 @@ def league_screen(user):
             st.write("→ Create your own league (coming soon)")
         return
 
-    # costruisci i dati delle righe
     rows = []
     for lid in league_ids:
         league_data = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute().data or []
@@ -126,7 +123,6 @@ def league_screen(user):
 
     rows_sorted = sorted(rows, key=lambda x: x["members"], reverse=True)
 
-    # render righe
     for i, r in enumerate(rows_sorted):
         row_html = (
             '<div class="row-box">'
