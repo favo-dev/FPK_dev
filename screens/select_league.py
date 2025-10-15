@@ -157,6 +157,7 @@ def league_screen(user):
             else:
                 st.session_state["user"] = None  
             home_screen(st.session_state["user"])
+            st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
