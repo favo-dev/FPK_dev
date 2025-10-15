@@ -70,8 +70,8 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         "who": user.get("who"),
         "name": team_name.strip(),
         "mail": user.get("mail"),
-        "main_color": main_color_rgb,       # jsonb
-        "second_color": second_color_rgb,   # jsonb
+        "main color": main_color_rgb,       # jsonb
+        "second color": second_color_rgb,   # jsonb
         "where": team_location.strip(),
         "foundation": foundation,
         "UUID": user.get("UUID"),
