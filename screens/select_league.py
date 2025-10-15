@@ -159,7 +159,9 @@ def league_screen(user):
             else:
                 st.session_state["user"] = None
         
-            st.session_state["screen"] = "home"
+            st.session_state.screen = "home"
+            if st.session_state.screen == "home":
+                home_screen(user)
             st.rerun()
 
             
