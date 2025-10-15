@@ -173,6 +173,7 @@ else:
                     user, logged_in = login(email, password, supabase, teams)
                     if logged_in:
                         st.session_state.user = user
+                        st.write(user)
                         st.session_state.logged_in = True
                         st.session_state.show_recovery = False
                         st.session_state.email_for_recovery = None
@@ -239,6 +240,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
