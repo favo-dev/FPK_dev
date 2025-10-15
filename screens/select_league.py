@@ -13,6 +13,7 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+# init session key
 if "go" not in st.session_state:
     st.session_state.go = False
 
@@ -70,8 +71,8 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         "who": user.get("who"),
         "name": team_name.strip(),
         "mail": user.get("mail"),
-        "main color": main_color_rgb,       # jsonb
-        "second color": second_color_rgb,   # jsonb
+        "main_color": main_color_rgb,       # jsonb column name (no spaces)
+        "second_color": second_color_rgb,   # jsonb column name (no spaces)
         "where": team_location.strip(),
         "foundation": foundation,
         "UUID": user.get("UUID"),
@@ -83,7 +84,7 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         st.error(f"Errore nella creazione della squadra: {insert_resp.error}")
         return None
 
-    inserted_row = None
+    # attempt to read inserted row
     try:
         inserted_row = (insert_resp.data or [None])[0]
     except Exception:
@@ -99,6 +100,7 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
 # -------------------------------------------------------------------------------------------
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
 def league_screen(user):
+    # se il flag go è attivo, mostra la home e stoppa il resto
     if st.session_state.go:
         home_screen(user)
         st.stop()
@@ -229,50 +231,67 @@ def league_screen(user):
     elif choice == "Create":
         st.markdown("### Create league & team")
 
+        # unico form che contiene sia league che team data
         with st.form("create_league_and_team_form"):
             st.write("**League data**")
-            league_name = st.text_input("League name (ID)", help="Unique identifier of the league")
-            league_location = st.text_input("League location", help="City / place")
-            visibility = st.radio("Visibility", ["Public", "Private"], index=0)
+            league_name = st.text_input("League name (ID)", help="Unique identifier of the league", key="league_name")
+            league_location = st.text_input("League location", help="City / place", key="league_location")
+            visibility = st.radio("Visibility", ["Public", "Private"], index=0, key="league_visibility")
 
-            pw_input = ""
-            if visibility == "Private":
-                pw_input = st.text_input("Password for private league", type="password", help="Set a password to allow joining")
+            # DISPLAY PASSWORD: sempre visibile ma disabilitato se Public -> evita che "scompaia"
+            pw_input = st.text_input(
+                "Password for private league (only if Private)",
+                type="password",
+                help="Set a password to allow joining (only for private leagues)",
+                key="league_pw_input",
+                disabled=(st.session_state.get("league_visibility", "Public") != "Private")
+            )
 
             st.write("---")
             st.write("**Team data**")
-            team_name = st.text_input("Team name", help="Name of your team")
-            team_location = st.text_input("Team location", value=league_location or "", help="City / place")
-            main_color_hex = st.color_picker("Main color", value="#00CAFF", help="Choose main team color")
-            second_color_hex = st.color_picker("Second color", value="#FFFFFF", help="Choose secondary team color")
+            team_name = st.text_input("Team name", help="Name of your team", key="team_name")
+            team_location = st.text_input("Team location (where)", value=st.session_state.get("league_location", "") or "", help="City / place", key="team_location")
+            main_color_hex = st.color_picker("Main color", value="#00CAFF", help="Choose main team color", key="main_color_hex")
+            second_color_hex = st.color_picker("Second color", value="#FFFFFF", help="Choose secondary team color", key="second_color_hex")
 
             submit_all = st.form_submit_button("Create league and team")
 
+        # Quando l'utente preme Create (submit_all è True), valida e salva
         if submit_all:
+            # leggi visibility in session (form aggiorna session state)
+            visibility_val = st.session_state.get("league_visibility", "Public")
+            pw_val = st.session_state.get("league_pw_input", "") or ""
+
             # validazioni
-            if not league_name:
+            if not st.session_state.get("league_name", "").strip():
                 st.error("Please provide a league name.")
-            elif not league_location:
+            elif not st.session_state.get("league_location", "").strip():
                 st.error("Please provide a league location.")
-            elif visibility == "Private" and not pw_input:
+            elif visibility_val == "Private" and not pw_val:
                 st.error("Please provide a password for private league.")
-            elif not team_name:
+            elif not st.session_state.get("team_name", "").strip():
                 st.error("Please provide a team name.")
-            elif not team_location:
+            elif not st.session_state.get("team_location", "").strip():
                 st.error("Please provide a team location.")
             else:
-                league_id = league_name.strip()
+                league_id = st.session_state["league_name"].strip()
+                league_location_val = st.session_state["league_location"].strip()
+                team_name_val = st.session_state["team_name"].strip()
+                team_location_val = st.session_state["team_location"].strip()
+
+                # check esistenza league
                 exists_resp = supabase.from_("leagues").select("ID").eq("ID", league_id).limit(1).execute()
                 if exists_resp.data:
                     st.error(f"A league with ID '{league_id}' already exists. Choose a different name.")
                 else:
-                    pw_hash = hashlib.sha256(pw_input.encode("utf-8")).hexdigest() if visibility == "Private" else ""
+                    pw_hash = hashlib.sha256(pw_val.encode("utf-8")).hexdigest() if visibility_val == "Private" else ""
+                    # foundation comune (month + year in English)
                     foundation = datetime.now().strftime("%B %Y")  # es. "October 2025"
                     president_uuid = user.get("UUID") if user else None
 
                     new_league = {
                         "ID": league_id,
-                        "where": league_location,
+                        "where": league_location_val,
                         "pwrd": pw_hash,
                         "foundation": foundation,
                         "president": president_uuid,
@@ -286,8 +305,8 @@ def league_screen(user):
                         st.session_state["selected_league"] = league_id
 
                         # Colori HEX → RGB
-                        main_color_rgb = hex_to_rgb(main_color_hex)
-                        second_color_rgb = hex_to_rgb(second_color_hex)
+                        main_color_rgb = hex_to_rgb(st.session_state.get("main_color_hex", "#00CAFF"))
+                        second_color_rgb = hex_to_rgb(st.session_state.get("second_color_hex", "#FFFFFF"))
 
                         if main_color_rgb is None or second_color_rgb is None:
                             st.error("Errore nella conversione dei colori. Riprova.")
@@ -295,14 +314,15 @@ def league_screen(user):
                             team_inserted = build_team(
                                 st.session_state.get("user"),
                                 league_id,
-                                team_name,
+                                team_name_val,
                                 main_color_rgb,
                                 second_color_rgb,
-                                team_location,
+                                team_location_val,
                                 foundation,
                             )
 
                             if team_inserted:
+                                # aggiorna cronologia e nav, poi torna alla home (team)
                                 hist = st.session_state.get("screen_history", [])
                                 hist.append("leagues")
                                 st.session_state["screen_history"] = hist
@@ -313,5 +333,3 @@ def league_screen(user):
                                 st.rerun()
                             else:
                                 st.error("League created, but team creation failed.")
-
-        
