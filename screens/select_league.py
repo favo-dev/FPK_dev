@@ -15,7 +15,7 @@ st.session_state.go = False
 def league_screen(user):
     if st.session_state.go == True:
         home_screen(user)
-        st.rerun()
+        st.stop()
     st.title("League hub")
     st.subheader("Your leagues")
 
