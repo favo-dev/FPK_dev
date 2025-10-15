@@ -22,10 +22,15 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # --------------------- HOME SCREEN ----------------------------------------------------
 
 def home_screen(user):
+    # protezione: se user è None, mostra un messaggio e non crashare
+    if not user:
+        st.warning("Profilo non selezionato. Torna alla schermata precedente o scegli un profilo.")
+        return
+
     st.sidebar.markdown(f"""
     <div style="font-size:24px;">
-        {user['who']}<br>
-        <i>{user['name']}</i>
+        {user.get('who','')}<br>
+        <i>{user.get('name','')}</i>
     </div>
     """, unsafe_allow_html=True)
 
@@ -53,7 +58,7 @@ def home_screen(user):
         list(screen_to_nav.values()),
         index=list(screen_to_nav.values()).index(st.session_state.nav_selection)
     )
-    logo_url = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL25ld19mYXZpY29uLnN2ZyIsImlhdCI6MTc1ODY0MDMyMiwiZXhwIjoxNzkwMTc2MzIyfQ.9G16n08Io42jvpC8rjVxRf1AzmvRIAAB2gaV_oVSuCI"
+    logo_url = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=..."
     st.sidebar.image(logo_url, width='stretch')
     if selection != st.session_state.nav_selection:
         st.session_state.nav_selection = selection
@@ -84,6 +89,7 @@ def home_screen(user):
         confirm_exit_screen()
     elif st.session_state.screen == "racer_detail":
         show_racer_screen()
+
 
 # --------------------- EXIT SCREEN ----------------------------------------------------
 
