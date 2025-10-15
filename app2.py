@@ -39,7 +39,6 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 teams = supabase.table("class_new").select("*").execute()
 
 STREAMLIT_URL = os.environ.get("STREAMLIT_URL", "https://fantapaddock-work-in-progress.streamlit.app")
-st.session_state.go = False
 # -------------------------------------------------------------------------------------------
 
 st.set_page_config(
@@ -161,6 +160,7 @@ else:
 
     # --- Colonna destra: form login o registrazione
     with col2:
+    
         if choice == "Login":
             with st.form("login_form"):
                 email = st.text_input(
@@ -239,6 +239,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
