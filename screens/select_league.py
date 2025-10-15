@@ -12,6 +12,8 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
 def league_screen(user):
+    if st.session_state.screen == "team":
+        your_team_screen(user)
     st.title("League hub")
     st.subheader("Your leagues")
 
@@ -159,7 +161,7 @@ def league_screen(user):
             else:
                 st.session_state["user"] = None
         
-            st.session_state["screen"] = "home"
+            st.session_state["screen"] = "team"
             st.rerun()
 
             
