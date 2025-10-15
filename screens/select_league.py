@@ -9,11 +9,12 @@ from screens.home import home_screen
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+st.session_state.go == False
 
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
 def league_screen(user):
-    if st.session_state.screen == "team":
-        your_team_screen(user)
+    if st.session_state.go == True:
+        home_screen(user)
     st.title("League hub")
     st.subheader("Your leagues")
 
@@ -160,8 +161,7 @@ def league_screen(user):
                 st.session_state["user"] = rows[0]
             else:
                 st.session_state["user"] = None
-        
-            st.session_state["screen"] = "team"
+            st.session_state.go = True
             st.rerun()
 
             
