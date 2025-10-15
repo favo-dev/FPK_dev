@@ -1,4 +1,6 @@
 import html as _html
+import hashlib
+from datetime import datetime
 import streamlit as st
 from supabase import create_client, Client
 from logic.functions import go_to_screen
@@ -175,4 +177,61 @@ def league_screen(user):
     if choice == "Join":
         st.write("→ Join a new league (coming soon)")
     elif choice == "Create":
-        st.write("→ Create your own league (coming soon)")
+        with st.form("create_league_form"):
+            league_name = st.text_input("League name (ID)", help="Unique identifier of the league")
+            league_location = st.text_input("Location", help="City / place")
+            visibility = st.radio("Visibility", ["Public", "Private"], index=0)
+            pw_input = ""
+            if visibility == "Private":
+                pw_input = st.text_input("Password for private league", type="password", help="Set a password to allow joining")
+
+            submit = st.form_submit_button("Create league")
+
+        if submit:
+            if not league_name:
+                st.error("Please provide a league name.")
+            elif not league_location:
+                st.error("Please provide a location.")
+            elif visibility == "Private" and not pw_input:
+                st.error("Please provide a password.")
+            else:
+                league_id = league_name.strip()
+                
+                exists_resp = supabase.from_("leagues").select("ID").eq("ID", league_id).limit(1).execute()
+                exists = (exists_resp.data or [])
+                if exists:
+                    st.error(f"A league with ID '{league_id}' already exists. Choose a different name.")
+                else:
+                    if visibility == "Private":
+                        pw_hash = hashlib.sha256(pw_input.encode("utf-8")).hexdigest()
+                    else:
+                        pw_hash = ""
+
+                    foundation = datetime.now().strftime("%B %Y")  # es. "October 2025"
+
+                    president_uuid = user.get("UUID") if user else None
+
+                    new_row = {
+                        "ID": league_id,
+                        "where": league_location,
+                        "pwrd": pw_hash,
+                        "foundation": foundation,
+                        "president": president_uuid,
+                    }
+
+                    insert_resp = supabase.from_("leagues").insert(new_row).execute()
+
+                    if getattr(insert_resp, "error", None):
+                        st.error(f"Error creating league: {insert_resp.error}")
+                    else:
+                        st.success(f"League '{league_id}' created successfully.")
+                        st.session_state["selected_league"] = league_id
+
+                        hist = st.session_state.get("screen_history", [])
+                        hist.append("leagues")
+                        st.session_state["screen_history"] = hist
+
+                        st.session_state["nav_selection"] = "Your team"
+                        st.session_state["screen"] = "team"
+                        st.rerun()
+        
