@@ -14,6 +14,106 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 if "go" not in st.session_state:
     st.session_state.go = False
+    
+def hex_to_rgb(hex_color: str):
+    if not hex_color:
+        return None
+    s = hex_color.strip().lstrip("#")
+    # supporta sia "fff" sia "ffffff"
+    if len(s) == 3:
+        s = "".join([c*2 for c in s])
+    if len(s) != 6:
+        return None
+    try:
+        r = int(s[0:2], 16)
+        g = int(s[2:4], 16)
+        b = int(s[4:6], 16)
+        return [r, g, b]
+    except Exception:
+        return None
+        
+def build_team(user, league_id, team_name, main_color_input, second_color_input, team_location):
+    if not user:
+        st.error("User non disponibile. Impossibile creare la squadra.")
+        return None
+
+    if not team_name:
+        st.error("Inserisci il nome della squadra.")
+        return None
+    if not team_location:
+        st.error("Inserisci la location della squadra.")
+        return None
+
+    def parse_color(c):
+        if c is None or c == "":
+            return None
+        if isinstance(c, (list, tuple)):
+            return list(c)
+        try:
+            parsed = json.loads(c)
+            if isinstance(parsed, (list, tuple)):
+                return list(parsed)
+        except Exception:
+            pass
+        try:
+            cleaned = c.strip().lstrip("[").rstrip("]")
+            parts = [p.strip() for p in cleaned.split(",") if p.strip() != ""]
+            nums = [int(p) for p in parts]
+            return nums
+        except Exception:
+            return None
+
+    main_color = parse_color(main_color_input)
+    second_color = parse_color(second_color_input)
+
+    def valid_color_list(col):
+        if not isinstance(col, list) or len(col) != 3:
+            return False
+        for v in col:
+            if not isinstance(v, int) or v < 0 or v > 255:
+                return False
+        return True
+
+    if main_color is None or not valid_color_list(main_color):
+        st.error("Colore principale non valido. Fornisci un JSON array come [0, 202, 255].")
+        return None
+    if second_color is None or not valid_color_list(second_color):
+        st.error("Colore secondario non valido. Fornisci un JSON array come [0, 202, 255].")
+        return None
+
+    foundation_year = str(datetime.now().year)
+
+    new_team = {
+        "who": user.get("who"),
+        "name": team_name.strip(),
+        "mail": user.get("mail"),
+        "main_color": main_color,       # json/jsonb
+        "second_color": second_color,   # json/jsonb
+        "where": team_location.strip(),
+        "foundation": foundation_year,
+        "UUID": user.get("UUID"),
+        "league": league_id,
+    }
+
+    insert_resp = supabase.from_("teams").insert(new_team).execute()
+
+    if getattr(insert_resp, "error", None):
+        st.error(f"Errore nella creazione della squadra: {insert_resp.error}")
+        return None
+
+    inserted_row = None
+    try:
+        inserted_row = (insert_resp.data or [None])[0]
+    except Exception:
+        inserted_row = None
+
+    if not inserted_row:
+        inserted_row = new_team
+
+    st.success(f"Team '{team_name}' created")
+
+    st.session_state["user"] = inserted_row
+    return inserted_row
 
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
 def league_screen(user):
@@ -227,11 +327,38 @@ def league_screen(user):
                         st.success(f"League '{league_id}' created successfully.")
                         st.session_state["selected_league"] = league_id
 
-                        hist = st.session_state.get("screen_history", [])
-                        hist.append("leagues")
-                        st.session_state["screen_history"] = hist
+                        # Dopo la creazione della league, apri un form per creare anche la squadra
+                        st.markdown("### Now create your team for this league")
 
-                        st.session_state["nav_selection"] = "Your team"
-                        st.session_state["screen"] = "team"
-                        st.rerun()
+                        with st.form("create_team_form"):
+                            team_name = st.text_input("Team name", help="Name of your team")
+                            team_location = st.text_input("Team location (where)", value=league_location, help="City / place")
+                            main_color_hex = st.color_picker("Main color", value="#00CAFF", help="Choose main team color")
+                            second_color_hex = st.color_picker("Second color", value="#FFFFFF", help="Choose secondary team color")
+
+                            create_team_submit = st.form_submit_button("Create team and go to home")
+
+                        if create_team_submit:
+                            # converti scelti dall'utente
+                            main_color_rgb = hex_to_rgb(main_color_hex)
+                            second_color_rgb = hex_to_rgb(second_color_hex)
+
+                            if main_color_rgb is None or second_color_rgb is None:
+                                st.error("Errore nella conversione dei colori. Riprova.")
+                            else:# chiama la funzione che crea la squadra
+                                team_inserted = build_team(st.session_state.get("user"), league_id,
+                                                   team_name, main_color_input, second_color_input, team_location)
+                            if team_inserted:
+                            # aggiorna cronologia e nav, poi torna alla home (team)
+                                hist = st.session_state.get("screen_history", [])
+                                hist.append("leagues")
+                                st.session_state["screen_history"] = hist
+
+                                st.session_state["nav_selection"] = "Your team"
+                                st.session_state["screen"] = "team"
+                            # assicura che la league selezionata sia impostata
+                                st.session_state["selected_league"] = league_id
+
+                            # rilancia per mostrare la home pulita con il nuovo team selezionato
+                                st.rerun()
         
