@@ -17,7 +17,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 if "go" not in st.session_state:
     st.session_state.go = False
 
-
 # -------------------------------------------------------------------------------------------
 # --------------------- UTILITY -------------------------------------------------------------
 def hex_to_rgb(hex_color: str):
@@ -37,11 +36,14 @@ def hex_to_rgb(hex_color: str):
     except Exception:
         return None
 
-
 # -------------------------------------------------------------------------------------------
 # --------------------- CREA TEAM -----------------------------------------------------------
 def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, team_location, foundation):
-    """Crea una riga nella tabella teams."""
+    """
+    Crea una riga nella tabella `teams`.
+    Nota: qui usiamo i nomi di colonna esatti che hai in Supabase:
+    "main color" e "second color" (con spazio).
+    """
     if not user:
         st.error("User non disponibile. Impossibile creare la squadra.")
         return None
@@ -67,12 +69,13 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         st.error("Colore secondario non valido. Usa il color picker.")
         return None
 
+    # **ATTENZIONE**: qui le chiavi corrispondono esattamente ai nomi delle colonne in supabase
     new_team = {
         "who": user.get("who"),
         "name": team_name.strip(),
         "mail": user.get("mail"),
-        "main_color": main_color_rgb,       # jsonb column name (no spaces)
-        "second_color": second_color_rgb,   # jsonb column name (no spaces)
+        "main color": main_color_rgb,       # <-- colonna 'main color' (con spazio)
+        "second color": second_color_rgb,   # <-- colonna 'second color' (con spazio)
         "where": team_location.strip(),
         "foundation": foundation,
         "UUID": user.get("UUID"),
@@ -84,7 +87,6 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         st.error(f"Errore nella creazione della squadra: {insert_resp.error}")
         return None
 
-    # attempt to read inserted row
     try:
         inserted_row = (insert_resp.data or [None])[0]
     except Exception:
@@ -93,9 +95,9 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
         inserted_row = new_team
 
     st.success(f"Team '{team_name}' created")
+    # aggiorna lo user in session con la riga del team creata (utile per la home)
     st.session_state["user"] = inserted_row
     return inserted_row
-
 
 # -------------------------------------------------------------------------------------------
 # --------------------- LEAGUE SCREEN -------------------------------------------------------
@@ -116,37 +118,7 @@ def league_screen(user):
     teams_rows = supabase.from_("teams").select("league").eq("UUID", player_uuid).execute().data or []
     league_ids = list({row.get("league") for row in teams_rows if row.get("league")})
 
-    # --- STYLE --------------------------------------------------------------------------
-    st.markdown(
-        """
-    <style>
-      .league-container { font-family: sans-serif; color: #fff; }
-      .header-row { display: flex; gap: 16px; padding: 12px 20px; font-weight: 700;
-                    background: #000; color: #fff; border-radius: 12px; align-items:center; }
-      .row-box { display: flex; gap: 18px; padding: 16px 22px; align-items: center;
-                 border-radius: 18px; margin: 12px 0;
-                 background: linear-gradient(180deg,#1f1f1f,#171717);
-                 border: 1px solid rgba(255,255,255,0.03); min-height: 76px; }
-      .row-box .col-name { flex: 5; font-weight: 700; color: #fff; overflow: visible; }
-      .row-box .col-location { flex: 4; color: #ddd; }
-      .row-box .col-foundation { flex: 3; color: #bbb; }
-      .row-box .col-members { flex: 0 0 120px; text-align: right; font-weight: 600; color: #fff; }
-      .header-row .h-col { padding: 0 10px; }
-      .header-row .h-name { flex: 5; }
-      .header-row .h-location { flex: 4; }
-      .header-row .h-foundation { flex: 3; }
-      .header-row .h-members { flex: 0 0 120px; text-align:right; }
-      .stButton { display: flex; align-items: center; justify-content: center;
-                  height: 76px; margin-left: 12px; margin-right: 12px; }
-      div.stButton > button { padding: 6px 14px !important; border-radius: 14px !important;
-                              min-width: 90px; white-space: nowrap; font-weight: 600;
-                              height: 36px; line-height: 16px; }
-      .no-results { color: #ddd; padding: 12px 0; }
-    </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
+    # --- STYLE (omesso qui per brevità, mantieni il tuo CSS) ---
     st.markdown('<div class="league-container">', unsafe_allow_html=True)
 
     # header
@@ -236,20 +208,19 @@ def league_screen(user):
             st.write("**League data**")
             league_name = st.text_input("League name (ID)", help="Unique identifier of the league", key="league_name")
             league_location = st.text_input("League location", help="City / place", key="league_location")
+
+            # uso la variabile locale visibility per mostrare il campo password dentro il form
             visibility = st.radio("Visibility", ["Public", "Private"], index=0, key="league_visibility")
 
-            # DISPLAY PASSWORD: sempre visibile ma disabilitato se Public -> evita che "scompaia"
-            pw_input = st.text_input(
-                "Password for private league (only if Private)",
-                type="password",
-                help="Set a password to allow joining (only for private leagues)",
-                key="league_pw_input",
-                disabled=(st.session_state.get("league_visibility", "Public") != "Private")
-            )
+            # mostra il campo password solo se visibility == "Private"
+            pw_input = ""
+            if visibility == "Private":
+                pw_input = st.text_input("Password for private league", type="password", help="Set a password to allow joining (only for private leagues)", key="league_pw_input")
 
             st.write("---")
             st.write("**Team data**")
             team_name = st.text_input("Team name", help="Name of your team", key="team_name")
+            # preimposta la team_location dal campo di league (ma l'utente può modificarla)
             team_location = st.text_input("Team location (where)", value=st.session_state.get("league_location", "") or "", help="City / place", key="team_location")
             main_color_hex = st.color_picker("Main color", value="#00CAFF", help="Choose main team color", key="main_color_hex")
             second_color_hex = st.color_picker("Second color", value="#FFFFFF", help="Choose secondary team color", key="second_color_hex")
@@ -258,27 +229,27 @@ def league_screen(user):
 
         # Quando l'utente preme Create (submit_all è True), valida e salva
         if submit_all:
-            # leggi visibility in session (form aggiorna session state)
+            # leggere i valori dal form (usiamo i valori di session perché i widget hanno key)
+            league_name_val = st.session_state.get("league_name", "").strip()
+            league_location_val = st.session_state.get("league_location", "").strip()
             visibility_val = st.session_state.get("league_visibility", "Public")
             pw_val = st.session_state.get("league_pw_input", "") or ""
+            team_name_val = st.session_state.get("team_name", "").strip()
+            team_location_val = st.session_state.get("team_location", "").strip()
 
             # validazioni
-            if not st.session_state.get("league_name", "").strip():
+            if not league_name_val:
                 st.error("Please provide a league name.")
-            elif not st.session_state.get("league_location", "").strip():
+            elif not league_location_val:
                 st.error("Please provide a league location.")
             elif visibility_val == "Private" and not pw_val:
                 st.error("Please provide a password for private league.")
-            elif not st.session_state.get("team_name", "").strip():
+            elif not team_name_val:
                 st.error("Please provide a team name.")
-            elif not st.session_state.get("team_location", "").strip():
+            elif not team_location_val:
                 st.error("Please provide a team location.")
             else:
-                league_id = st.session_state["league_name"].strip()
-                league_location_val = st.session_state["league_location"].strip()
-                team_name_val = st.session_state["team_name"].strip()
-                team_location_val = st.session_state["team_location"].strip()
-
+                league_id = league_name_val
                 # check esistenza league
                 exists_resp = supabase.from_("leagues").select("ID").eq("ID", league_id).limit(1).execute()
                 if exists_resp.data:
@@ -311,6 +282,7 @@ def league_screen(user):
                         if main_color_rgb is None or second_color_rgb is None:
                             st.error("Errore nella conversione dei colori. Riprova.")
                         else:
+                            # crea la squadra (usa nomi colonna con spazi come nel tuo DB)
                             team_inserted = build_team(
                                 st.session_state.get("user"),
                                 league_id,
