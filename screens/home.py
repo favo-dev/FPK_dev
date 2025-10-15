@@ -1,5 +1,4 @@
 import streamlit as st
-from screens.select_league import league_screen
 from screens.your_team import your_team_screen
 from screens.callups import callup_screen
 from screens.calendar import calendar_screen, race_results_screen
@@ -85,8 +84,6 @@ def home_screen(user):
         confirm_exit_screen()
     elif st.session_state.screen == "racer_detail":
         show_racer_screen()
-    elif st.session_state.screen == "league":
-        league_screen(user)
 
 # --------------------- EXIT SCREEN ----------------------------------------------------
 
