@@ -140,9 +140,11 @@ def league_screen(user):
         key = f"open_league_{i}_{r['id']}"
         if btn_col.button("Go to", key=key):
             st.session_state["selected_league"] = r["id"]
+
             hist = st.session_state.get("screen_history", [])
             hist.append("leagues")
             st.session_state["screen_history"] = hist
+
             selected_league = st.session_state["selected_league"]
             resp = supabase.from_("teams") \
                 .select("*") \
@@ -155,10 +157,12 @@ def league_screen(user):
             if len(rows) > 0:
                 st.session_state["user"] = rows[0]
             else:
-                st.session_state["user"] = None  
-            home_screen(st.session_state["user"])
+                st.session_state["user"] = None
+        
+            st.session_state["screen"] = "home"
             st.rerun()
 
+            
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
