@@ -23,10 +23,51 @@ def league_screen(user):
     teams_rows = supabase.from_("teams").select("league").eq("UUID", player_uuid).execute().data or []
     league_ids = list({row.get("league") for row in teams_rows if row.get("league")})
 
-    # ... (CSS + rendering header rimangono identici) ...
+    st.markdown(
+        """
+    <style>
+      .league-container { font-family: sans-serif; color: #fff; }
+      .header-row { display: flex; gap: 16px; padding: 12px 20px; font-weight: 700; background: #000; color: #fff; border-radius: 12px; align-items:center; }
+      .row-box { display: flex; gap: 18px; padding: 16px 22px; align-items: center; border-radius: 18px; margin: 12px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 76px; }
+      .row-box .col-name { flex: 5; font-weight: 700; color: #fff; overflow: visible; text-overflow: ellipsis; white-space: normal; }
+      .row-box .col-location { flex: 4; color: #ddd; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
+      .row-box .col-foundation { flex: 3; color: #bbb; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
+      .row-box .col-members { flex: 0 0 120px; text-align: right; font-weight: 600; color: #fff; margin-right: 8px; }
+
+      /* header column sizing */
+      .header-row .h-col { padding: 0 10px; }
+      .header-row .h-name { flex: 5; }
+      .header-row .h-location { flex: 4; }
+      .header-row .h-foundation { flex: 3; }
+      .header-row .h-members { flex: 0 0 120px; text-align:right; }
+
+      /* bottone Info perfettamente centrato e non sovrapposto */
+      .stButton { 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          height: 76px; 
+          margin-left: 12px; 
+          margin-right: 12px;
+      }
+      div.stButton > button { 
+          padding: 6px 14px !important; 
+          border-radius: 14px !important; 
+          min-width: 90px; 
+          white-space: nowrap; 
+          font-weight: 600; 
+          height: 36px; 
+          line-height: 16px; 
+      }
+
+      .no-results { color: #ddd; padding: 12px 0; }
+    </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown('<div class="league-container">', unsafe_allow_html=True)
 
-    # header
     left_hcol, btn_hcol = st.columns([0.90, 0.10])
     header_html = (
         '<div class="header-row">'
@@ -98,15 +139,12 @@ def league_screen(user):
 
         key = f"open_league_{i}_{r['id']}"
         if btn_col.button("Go to", key=key):
-            # imposta la league selezionata
             st.session_state["selected_league"] = r["id"]
 
-            # aggiorna cronologia
             hist = st.session_state.get("screen_history", [])
             hist.append("leagues")
             st.session_state["screen_history"] = hist
 
-            # ottieni la riga del team per questo player_uuid + league
             selected_league = st.session_state["selected_league"]
             resp = supabase.from_("teams") \
                 .select("*") \
@@ -119,17 +157,12 @@ def league_screen(user):
             if len(rows) > 0:
                 st.session_state["user"] = rows[0]
             else:
-                # se non trovi una riga, mantieni l'utente corrente (evita crash nella home)
-                st.warning("Team non trovato per questa league — rimango sul profilo corrente.")
-                st.session_state["user"] = user
-
-            # imposta la schermata di navigazione sulla home (team)
-            st.session_state["nav_selection"] = "Your team"
-            st.session_state["screen"] = "team"
-
-            # rilancia l'app: il main mostrerà solo la home (pulita)
+                st.session_state["user"] = None
+        
+            st.session_state["screen"] = "home"
             st.rerun()
 
+            
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
@@ -138,4 +171,3 @@ def league_screen(user):
         st.write("→ Join a new league (coming soon)")
     elif choice == "Create":
         st.write("→ Create your own league (coming soon)")
-
