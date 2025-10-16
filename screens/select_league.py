@@ -248,7 +248,146 @@ def league_screen(user):
     # --- CREA NUOVA LEAGUE + TEAM -------------------------------------------------------
     choice = st.radio("Select:", ["Join", "Create"])
     if choice == "Join":
-        st.write("→ Join a new league (coming soon)")
+        st.markdown("### Join an existing league")
+
+    # --- STEP 1: lookup della league per ID
+        with st.form("join_league_lookup_form"):
+            st.write("**Insert the League ID you want to join**")
+            join_league_id = st.text_input("League name (ID)", key="join_league_id")
+            lookup_submit = st.form_submit_button("Find league")
+
+        if lookup_submit:
+            lid = (st.session_state.get("join_league_id") or "").strip()
+            if not lid:
+                st.error("Please provide a league ID to search.")
+            else:
+                resp = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute()
+                league_data = resp.data or []
+                if not league_data:
+                    st.error(f"League with ID '{lid}' not found.")
+                else:
+                # salva i dati della league in session_state e ricarica per mostrare il form di join
+                    st.session_state["join_league_found"] = league_data[0]
+                    st.rerun()
+
+    # --- se è stata trovata una league, mostra il form di join + team creation
+        league = st.session_state.get("join_league_found")
+        if league:
+            st.markdown("#### League found")
+            st.markdown(f"- **ID:** `{_html.escape(str(league.get('ID') or ''))}`")
+            st.markdown(f"- **Location:** {_html.escape(str(league.get('where') or 'N/A'))}")
+            st.markdown(f"- **Foundation:** {_html.escape(str(league.get('foundation') or 'N/A'))}")
+            is_private = bool(league.get("pwrd"))  # se pwrd è non-empty -> privata
+
+        # bottone per cercare un'altra league (reset)
+            if st.button("Search another league", key="reset_join_search"):
+                st.session_state.pop("join_league_found", None)
+            # puliamo eventuali password temporanee
+                st.session_state.pop("join_league_pw_input", None)
+                st.rerun()
+
+            st.markdown("---")
+            st.markdown("### Create your team in this league")
+
+        # form per la creazione della team e join della league
+            with st.form("join_league_form"):
+                if is_private:
+                    st.info("This league is private — enter the league password to join.")
+                    pw_input = st.text_input("League password", type="password", key="join_league_pw_input")
+                else:
+                    st.write("This league is public — no password required to join.")
+
+            # team fields (usiamo key-specific per non interferire con il form 'create' esistente)
+                join_team_name = st.text_input("Team name", key="join_team_name")
+                join_team_location = st.text_input(
+                    "Team location (where)",
+                    value=league.get("where") or "",
+                    key="join_team_location"
+                )
+                join_main_color_hex = st.color_picker("Main color", value="#00CAFF", key="join_main_color_hex")
+                join_second_color_hex = st.color_picker("Second color", value="#FFFFFF", key="join_second_color_hex")
+
+                submit_join = st.form_submit_button("Join league & create team")
+
+            if submit_join:
+            # validazioni client-side
+                team_name_val = (st.session_state.get("join_team_name") or "").strip()
+                team_location_val = (st.session_state.get("join_team_location") or "").strip()
+                pw_val = st.session_state.get("join_league_pw_input", "") or ""
+                league_id = league.get("ID")
+
+                if not team_name_val:
+                    st.error("Please provide a team name.")
+                elif not team_location_val:
+                    st.error("Please provide a team location.")
+                else:
+                    # se la league è privata, controlla password (hash SHA256 come durante la creazione)
+                    stored_pw_hash = league.get("pwrd") or ""
+                    if stored_pw_hash:
+                        if not pw_val:
+                            st.error("Please provide the league password.")
+                        # non procedere
+                        else:
+                            entered_hash = hashlib.sha256(pw_val.encode("utf-8")).hexdigest()
+                            if entered_hash != stored_pw_hash:
+                                st.error("Incorrect league password.")
+                            else:
+                            # password OK -> crea team
+                                main_color_rgb = hex_to_rgb(st.session_state.get("join_main_color_hex", "#00CAFF"))
+                                second_color_rgb = hex_to_rgb(st.session_state.get("join_second_color_hex", "#FFFFFF"))
+                                if main_color_rgb is None or second_color_rgb is None:
+                                    st.error("Errore nella conversione dei colori. Riprova.")
+                                else:
+                                    team_inserted = build_team(
+                                        user,
+                                        league_id,
+                                        team_name_val,
+                                        main_color_rgb,
+                                        second_color_rgb,
+                                        team_location_val,
+                                        league.get("foundation"),
+                                    )
+                                    if team_inserted:
+                                        st.success(f"Joined league '{league_id}' and created team '{team_name_val}'.")
+                                        hist = st.session_state.get("screen_history", [])
+                                        hist.append("leagues")
+                                        st.session_state["screen_history"] = hist
+                                        st.session_state["nav_selection"] = "Your team"
+                                        st.session_state["screen"] = "team"
+                                        st.session_state["selected_league"] = league_id
+                                        st.session_state.go = True
+                                        st.rerun()
+                                    else:
+                                        st.error("Team creation failed after joining league.")
+                    else:
+                    # league pubblica -> crea team direttamente
+                        main_color_rgb = hex_to_rgb(st.session_state.get("join_main_color_hex", "#00CAFF"))
+                        second_color_rgb = hex_to_rgb(st.session_state.get("join_second_color_hex", "#FFFFFF"))
+                        if main_color_rgb is None or second_color_rgb is None:
+                            st.error("Errore nella conversione dei colori. Riprova.")
+                        else:
+                            team_inserted = build_team(
+                                user,
+                                league_id,
+                                team_name_val,
+                                main_color_rgb,
+                                second_color_rgb,
+                                team_location_val,
+                                league.get("foundation"),
+                            )
+                            if team_inserted:
+                                st.success(f"Joined league '{league_id}' and created team '{team_name_val}'.")
+                                hist = st.session_state.get("screen_history", [])
+                                hist.append("leagues")
+                                st.session_state["screen_history"] = hist
+                                st.session_state["nav_selection"] = "Your team"
+                                st.session_state["screen"] = "team"
+                                st.session_state["selected_league"] = league_id
+                                st.session_state.go = True
+                                st.rerun()
+                            else:
+                                st.error("Team creation failed after joining league.")
+
 
     elif choice == "Create":
         st.markdown("### Create league & team")
