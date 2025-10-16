@@ -273,17 +273,6 @@ def league_screen(user):
                     if already_rows:
                     # utente già iscritto: mostra messaggio e offri link per aprire la propria squadra
                         st.error("You are already enrolled in this league.")
-                        if st.button("Open my team in this league", key=f"open_my_team_{lid}"):
-                        # imposta la sessione come se l'utente avesse selezionato la league e apri la home/team
-                            st.session_state["selected_league"] = lid
-                            st.session_state["user"] = already_rows[0]
-                            hist = st.session_state.get("screen_history", [])
-                            hist.append("leagues")
-                            st.session_state["screen_history"] = hist
-                            st.session_state["nav_selection"] = "Your team"
-                            st.session_state["screen"] = "team"
-                            st.session_state.go = True
-                            st.rerun()
                     # non salvare join_league_found — lascia il form pulito
                     else:
                     # non è ancora iscritto: salva league trovata e mostra il form di join
