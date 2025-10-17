@@ -502,7 +502,7 @@ def league_screen(user):
                         # --- crea le righe in league_f1_stats per tutti i racers con go == TRUE ---
                         try:
     # prendi gli id dei racers con go = TRUE
-                        racers_resp = supabase.from_("racers_f1_new").select("id").eq("go", True).execute()
+                            racers_resp = supabase.from_("racers_f1_new").select("id").eq("go", True).execute()
                         if getattr(racers_resp, "error", None):
                             st.warning(f"Warning fetching racers: {racers_resp.error}")
                             racer_rows = []
