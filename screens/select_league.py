@@ -499,6 +499,34 @@ def league_screen(user):
                     else:
                         st.success(f"League '{league_id}' created successfully.")
                         st.session_state["selected_league"] = league_id
+                        # --- crea le righe in league_f1_stats per tutti i racers con go == TRUE ---
+                        try:
+    # prendi gli id dei racers con go = TRUE
+                        racers_resp = supabase.from_("racers_f1_new").select("id").eq("go", True).execute()
+                        if getattr(racers_resp, "error", None):
+                            st.warning(f"Warning fetching racers: {racers_resp.error}")
+                            racer_rows = []
+                        else:
+                            racer_rows = racers_resp.data or []
+
+                        player_ids = [r.get("id") for r in racer_rows if r.get("id")]
+
+                        if player_ids:
+        # prepara le righe da inserire; NON includere 'id' -> sarà generato dal DB
+                            stats_rows = [{"league_id": league_id, "player_id": pid} for pid in player_ids]
+
+                            insert_stats_resp = supabase.from_("league_f1_stats").insert(stats_rows).execute()
+                            if getattr(insert_stats_resp, "error", None):
+            # se fallisce, loggare/avvisare ma non bloccare (a scelta)
+                                st.error(f"Errore inserimento league_f1_stats: {insert_stats_resp.error}")
+                            else:
+                                inserted = insert_stats_resp.data or []
+                                st.info(f"Crea​te {len(inserted)} righe in league_f1_stats per la league '{league_id}'.")
+                        else:
+                            st.info("Nessun racer con go == True trovato — nessuna riga creata in league_f1_stats.")
+                    except Exception as e:
+                        st.error(f"Eccezione durante creazione league_f1_stats: {e}")
+
 
                         # Colori HEX → RGB
                         main_color_rgb = hex_to_rgb(st.session_state.get("main_color_hex", "#00CAFF"))
