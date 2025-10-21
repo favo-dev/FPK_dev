@@ -764,41 +764,78 @@ def build_normalized_team_set(team_drivers: Any, use_full_name: bool) -> set:
 
 # -------------------------------------------------------------------------------------------
 
-def update_user_field(user, field, label):
-    if f"{field}_temp" not in st.session_state:
-        st.session_state[f"{field}_temp"] = user.get(field, "")
-    new_val = st.text_input(label, value=st.session_state[f"{field}_temp"], key=f"{field}_input")
-    st.session_state[f"{field}_temp"] = new_val  # aggiorna subito session_state
+import streamlit as st
 
-    if st.button(f"Save {label}", key=f"save_{field}", use_container_width=True):
-        if not new_val:
+def _supabase_error(resp):
+    """Helper: ritorna l'errore (o None) da una risposta supabase-py"""
+    # la risposta può essere un oggetto con attributo .error oppure un dict con chiave 'error'
+    return getattr(resp, "error", None) or (resp.get("error") if isinstance(resp, dict) else None)
+
+def update_user_field(user, field, label):
+    """
+    Aggiorna il campo `field` per l'utente (sia nelle tabelle che nell'auth se field == 'mail').
+    - user: dict con almeno 'who' (chi identifier) e, se necessario, 'id' (auth user id) presente nella sessione.
+    - field: nome colonna da aggiornare (es. 'mail', 'name', ecc.)
+    - label: label da mostrare nell'UI (es. "Email")
+    """
+    if not user:
+        st.error("User non disponibile.")
+        return
+
+    temp_key = f"{field}_temp"
+    input_key = f"{field}_input"
+    save_key = f"save_{field}"
+
+    # inizializza valore temporaneo una sola volta
+    if temp_key not in st.session_state:
+        st.session_state[temp_key] = user.get(field, "") or ""
+
+    # widget di input
+    new_val = st.text_input(label, value=st.session_state[temp_key], key=input_key)
+    # aggiorna subito il temp in session_state per preservare il valore tra i rerun
+    st.session_state[temp_key] = new_val
+
+    # Bottone salva
+    if st.button(f"Save {label}", key=save_key, use_container_width=True):
+        # validazioni basilari
+        if not new_val or (field == "mail" and "@" not in new_val):
             st.error(f"Insert a valid {label.lower()}!")
             return
+
         try:
-            upd_resp = supabase.table("class_new").update({field: new_val}).eq("who", user["who"]).execute()
-            upd_resp = supabase.table("teams").update({field: new_val}).eq("who", user["who"]).execute()
-            if field == 'mail':
-                const { data, error } = await supabase.auth.updateUser({ email: new_val });
-                if (error) {
-                  console.error('Errore aggiornamento email:', error);
-                } else {
-                  console.log('Aggiornamento avviato:', data);
-                }
+            # aggiorna le tabelle custom (class_new e teams)
+            resp_class = supabase.from_("class_new").update({field: new_val}).eq("who", user["who"]).execute()
+            resp_teams = supabase.from_("teams").update({field: new_val}).eq("who", user["who"]).execute()
+
+            # verifica errori DB
+            err_class = _supabase_error(resp_class)
+            err_teams = _supabase_error(resp_teams)
+            if err_class or err_teams:
+                st.error(f"Database update error: {err_class or err_teams}")
+                return
+
+            # Se stiamo cambiando l'email, aggiorna anche l'Auth user
+            if field == "mail":
+                # NOTE: supabase.auth.update_user richiede che l'utente sia autenticato nella sessione corrente.
+                # Vedi doc: supabase.auth.update_user({"email": "new@email.com"})
+                auth_resp = supabase.auth.update_user({"email": new_val})
+                auth_err = _supabase_error(auth_resp)
+                if auth_err:
+                    st.error(f"Errore aggiornamento email auth: {auth_err}")
+                    return
+
+            user[field] = new_val
+            st.session_state["user"] = user
+            st.success(f"{label} updated!")
+
+            # rimuovi temporaneo per future modifiche
+            if temp_key in st.session_state:
+                del st.session_state[temp_key]
+
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Unexpected error: {e}")
             return
 
-        resp_err, resp_status = getattr(upd_resp, "error", None), getattr(upd_resp, "status_code", None)
-        if resp_err or (resp_status and resp_status >= 400):
-            st.error(f"Error: {resp_err or getattr(upd_resp,'data',None)}")
-            return
-
-        # Aggiorna localmente l'oggetto user
-        user[field] = new_val
-        st.success(f"{label} updated!")
-
-        # Rimuovi temporaneo per future modifiche
-        del st.session_state[f"{field}_temp"]
 
 # -------------------------------------------------------------------------------------------
 
