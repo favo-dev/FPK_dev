@@ -842,22 +842,15 @@ def update_user_field(user, field, label):
                         st.error(f"Errore aggiornamento Auth: {auth_err}")
                         return
                     else:
-                        st.success("Auth email update initiated (controlla le email per conferme se richieste).")
                 else:
-                    # nessuna sessione: offri re-auth (password) oppure suggerisci endpoint admin
-                    st.warning("Auth session missing! Non posso aggiornare l'email nell'Auth perché non sei autenticato ora.")
-                    st.write("Opzioni:")
-                    st.write("- Riautenticati qui sotto (inserisci password) per completare il cambio email automaticamente.")
-                    st.write("- Oppure usa il flusso amministrativo (endpoint server con service_role key) se non hai più accesso alla vecchia mail.")
+                    st.write("Insert password to complete the change")
 
-                    # RE-AUTH UI: chiedi la password e prova a login con l'email corrente
                     pw_key = f"reauth_pw_{field}"
-                    pw = st.text_input("Inserisci la tua password per ri-autenticarti", type="password", key=pw_key)
+                    pw = st.text_input("", type="password", key=pw_key)
                     if st.button("Re-authenticate & finish email change", key=f"reauth_btn_{field}"):
                         if not pw:
-                            st.error("Inserisci la password per ri-autenticarti.")
+                            st.error("Please insert password")
                             return
-                        # tentativo di sign-in per ottenere session
                         signin_resp = supabase.auth.sign_in_with_password({"email": user.get("mail"), "password": pw})
                         signin_err = _supabase_error(signin_resp)
                         if signin_err:
@@ -870,16 +863,11 @@ def update_user_field(user, field, label):
                             st.error(f"Errore aggiornamento Auth dopo reauth: {auth_err2}")
                             return
                         else:
-                            st.success("Email aggiornata in Auth (controlla le email per eventuali conferme).")
-                            # aggiorna user locale
                             user["mail"] = new_val
-                # fine gestione mail
-
-            # se non è email o se siamo qui perché auth update è andato a buon fine:
+                             st.success(f"{label} updated!")
             user[field] = new_val
             st.session_state["user"] = user
-            st.success(f"{label} updated!")
-
+           
             if temp_key in st.session_state:
                 del st.session_state[temp_key]
 
