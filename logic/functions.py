@@ -764,19 +764,25 @@ def build_normalized_team_set(team_drivers: Any, use_full_name: bool) -> set:
 
 # -------------------------------------------------------------------------------------------
 
-import streamlit as st
-
 def _supabase_error(resp):
-    """Helper: ritorna l'errore (o None) da una risposta supabase-py"""
-    # la risposta può essere un oggetto con attributo .error oppure un dict con chiave 'error'
-    return getattr(resp, "error", None) or (resp.get("error") if isinstance(resp, dict) else None)
+    """Extract error from supabase-py style response (robust)."""
+    if resp is None:
+        return "No response"
+    # some responses have .error, some have .get('error')
+    err = getattr(resp, "error", None)
+    if err:
+        return err
+    if isinstance(resp, dict):
+        return resp.get("error")
+    # supabase-py typically returns an object with .data and .status_code too
+    return None
 
 def update_user_field(user, field, label):
     """
-    Aggiorna il campo `field` per l'utente (sia nelle tabelle che nell'auth se field == 'mail').
-    - user: dict con almeno 'who' (chi identifier) e, se necessario, 'id' (auth user id) presente nella sessione.
-    - field: nome colonna da aggiornare (es. 'mail', 'name', ecc.)
-    - label: label da mostrare nell'UI (es. "Email")
+    Aggiorna field per l'utente:
+     - aggiorna sempre le tabelle class_new e teams
+     - se sessione auth presente, aggiorna anche supabase.auth.update_user
+     - se sessione mancante, propone re-auth o indica l'endpoint admin
     """
     if not user:
         st.error("User non disponibile.")
@@ -786,55 +792,101 @@ def update_user_field(user, field, label):
     input_key = f"{field}_input"
     save_key = f"save_{field}"
 
-    # inizializza valore temporaneo una sola volta
     if temp_key not in st.session_state:
         st.session_state[temp_key] = user.get(field, "") or ""
 
-    # widget di input
     new_val = st.text_input(label, value=st.session_state[temp_key], key=input_key)
-    # aggiorna subito il temp in session_state per preservare il valore tra i rerun
     st.session_state[temp_key] = new_val
 
-    # Bottone salva
     if st.button(f"Save {label}", key=save_key, use_container_width=True):
-        # validazioni basilari
         if not new_val or (field == "mail" and "@" not in new_val):
             st.error(f"Insert a valid {label.lower()}!")
             return
 
         try:
-            # aggiorna le tabelle custom (class_new e teams)
+            # 1) aggiorna tabelle custom
             resp_class = supabase.from_("class_new").update({field: new_val}).eq("who", user["who"]).execute()
             resp_teams = supabase.from_("teams").update({field: new_val}).eq("who", user["who"]).execute()
 
-            # verifica errori DB
             err_class = _supabase_error(resp_class)
             err_teams = _supabase_error(resp_teams)
             if err_class or err_teams:
                 st.error(f"Database update error: {err_class or err_teams}")
                 return
 
-            # Se stiamo cambiando l'email, aggiorna anche l'Auth user
+            # 2) se sto cambiando email, provo ad aggiornare anche Auth
             if field == "mail":
-                # NOTE: supabase.auth.update_user richiede che l'utente sia autenticato nella sessione corrente.
-                # Vedi doc: supabase.auth.update_user({"email": "new@email.com"})
-                auth_resp = supabase.auth.update_user({"email": new_val})
-                auth_err = _supabase_error(auth_resp)
-                if auth_err:
-                    st.error(f"Errore aggiornamento email auth: {auth_err}")
-                    return
+                # controlla se c'è una sessione utente attiva
+                try:
+                    current_user_resp = supabase.auth.get_user()
+                except Exception as e:
+                    current_user_resp = None
 
+                current_user = None
+                if current_user_resp:
+                    # supabase-py returns an object with .data or .user in different versions
+                    # proviamo ad essere robusti:
+                    data = getattr(current_user_resp, "data", None) or (current_user_resp if isinstance(current_user_resp, dict) else None)
+                    if data:
+                        # data può essere {'user': {...}} oppure {'user': {...}, 'session': {...}}
+                        current_user = data.get("user") if isinstance(data, dict) else None
+                        # in alcune versioni: current_user_resp.user
+                        if not current_user:
+                            current_user = getattr(current_user_resp, "user", None)
+
+                if current_user:
+                    # utente autenticato: possiamo aggiornare via auth.update_user
+                    auth_resp = supabase.auth.update_user({"email": new_val})
+                    auth_err = _supabase_error(auth_resp)
+                    if auth_err:
+                        st.error(f"Errore aggiornamento Auth: {auth_err}")
+                        return
+                    else:
+                        st.success("Auth email update initiated (controlla le email per conferme se richieste).")
+                else:
+                    # nessuna sessione: offri re-auth (password) oppure suggerisci endpoint admin
+                    st.warning("Auth session missing! Non posso aggiornare l'email nell'Auth perché non sei autenticato ora.")
+                    st.write("Opzioni:")
+                    st.write("- Riautenticati qui sotto (inserisci password) per completare il cambio email automaticamente.")
+                    st.write("- Oppure usa il flusso amministrativo (endpoint server con service_role key) se non hai più accesso alla vecchia mail.")
+
+                    # RE-AUTH UI: chiedi la password e prova a login con l'email corrente
+                    pw_key = f"reauth_pw_{field}"
+                    pw = st.text_input("Inserisci la tua password per ri-autenticarti", type="password", key=pw_key)
+                    if st.button("Re-authenticate & finish email change", key=f"reauth_btn_{field}"):
+                        if not pw:
+                            st.error("Inserisci la password per ri-autenticarti.")
+                            return
+                        # tentativo di sign-in per ottenere session
+                        signin_resp = supabase.auth.sign_in_with_password({"email": user.get("mail"), "password": pw})
+                        signin_err = _supabase_error(signin_resp)
+                        if signin_err:
+                            st.error(f"Re-auth failed: {signin_err}")
+                            return
+                        # ora dovremmo avere sessione: riprovo update_user
+                        auth_resp2 = supabase.auth.update_user({"email": new_val})
+                        auth_err2 = _supabase_error(auth_resp2)
+                        if auth_err2:
+                            st.error(f"Errore aggiornamento Auth dopo reauth: {auth_err2}")
+                            return
+                        else:
+                            st.success("Email aggiornata in Auth (controlla le email per eventuali conferme).")
+                            # aggiorna user locale
+                            user["mail"] = new_val
+                # fine gestione mail
+
+            # se non è email o se siamo qui perché auth update è andato a buon fine:
             user[field] = new_val
             st.session_state["user"] = user
             st.success(f"{label} updated!")
 
-            # rimuovi temporaneo per future modifiche
             if temp_key in st.session_state:
                 del st.session_state[temp_key]
 
         except Exception as e:
             st.error(f"Unexpected error: {e}")
             return
+
 
 
 # -------------------------------------------------------------------------------------------
