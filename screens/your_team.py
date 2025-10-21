@@ -71,8 +71,8 @@ def your_team_screen(user):
     st.session_state.setdefault("selected_driver", None)
     st.session_state.setdefault("customizing", False)
 
-    f1_data = supabase.from_("racers_f1").select("*").execute().data or []
-    mgp_data = supabase.from_("racers_mgp").select("*").execute().data or []
+    f1_data = supabase.from_("racers_f1_new").select("*").execute().data or []
+    mgp_data = supabase.from_("racers_mgp_new").select("*").execute().data or []
 
     st.subheader("Options")
 
