@@ -14,6 +14,7 @@ from screens.show_racers import show_racer_screen
 # --------------------- SUPABASE CLIENT --------------------------------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- TEAM SCREEN --------------------------------------------------------
@@ -114,7 +115,7 @@ def your_team_screen(user):
     if st.session_state.customizing:
         st.markdown("### Customize your profile")
         st.markdown("<div style='border:2px solid #ddd;padding:2rem;border-radius:16px;max-width:700px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.05);margin-bottom:3rem'>", unsafe_allow_html=True)
-        update_user_field(user, "mail", "New email",supabase)
+        update_user_field(user, "mail", "New email",supabase, SUPABASE_SERVICE_ROLE_KEY)
         update_user_field(user, "who", "New name",supabase)
         update_user_field(user, "name", "Team name",supabase)
         update_user_field(user, "where", "Location",supabase)
