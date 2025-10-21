@@ -863,7 +863,7 @@ def update_user_field(user, field, label):
                             return
                         else:
                             user["mail"] = new_val
-                             st.success(f"{label} updated!")
+                            st.success(f"{label} updated!")
             user[field] = new_val
             st.session_state["user"] = user
            
