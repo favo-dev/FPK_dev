@@ -841,7 +841,6 @@ def update_user_field(user, field, label):
                     if auth_err:
                         st.error(f"Errore aggiornamento Auth: {auth_err}")
                         return
-                    else:
                 else:
                     st.write("Insert password to complete the change")
 
