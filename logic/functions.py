@@ -864,7 +864,7 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
         try:
             q = supabase_client.from_(profiles_table_name).select("id").eq("email", user.get("mail")).limit(1).execute()
             if _extract_error(q):
-                
+                print("")
             else:
                 data = _extract_data(q) or []
                 if isinstance(data, list) and data:
