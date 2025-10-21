@@ -114,10 +114,10 @@ def your_team_screen(user):
     if st.session_state.customizing:
         st.markdown("### Customize your profile")
         st.markdown("<div style='border:2px solid #ddd;padding:2rem;border-radius:16px;max-width:700px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.05);margin-bottom:3rem'>", unsafe_allow_html=True)
-        update_user_field(user, "mail", "New email")
-        update_user_field(user, "who", "New name")
-        update_user_field(user, "name", "Team name")
-        update_user_field(user, "where", "Location")
+        update_user_field(user, "mail", "New email",supabase)
+        update_user_field(user, "who", "New name",supabase)
+        update_user_field(user, "name", "Team name",supabase)
+        update_user_field(user, "where", "Location",supabase)
         new_main = st.color_picker("Principal color", value=safe_rgb_to_hex(user.get("main color", [255,255,255])))
         if st.button("Save principal color", use_container_width=True):
             supabase.table("class").update({"main color": color_to_rgb(new_main)}).eq("ID", user["ID"]).execute(); st.success("Principal color updated!")
