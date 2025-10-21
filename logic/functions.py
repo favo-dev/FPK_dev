@@ -791,23 +791,11 @@ def _extract_data(resp):
 
 # --- funzione principale ---
 def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE_KEY=None, update_profiles_table=False, profiles_table_name="profiles"):
-    """
-    Aggiorna un campo dell'utente:
-    - per tutti i field: aggiorna le tabelle 'class_new' e 'teams'
-    - se field == "mail": esegue anche update dell'Auth.
-        * Se è passato SUPABASE_SERVICE_ROLE_KEY -> crea un admin client e usa admin.update_user_by_id
-          (flusso automatico server-side).
-        * Se non è passato -> mostra avviso che è richiesta la service_role key o reauth (non implementato qui).
-    PARAMS:
-      - user: dict con almeno 'who' e preferibilmente l'id auth (chiavi provate: id, user_id, auth_id, UUID)
-      - field, label: come sempre
-      - supabase_client: client supabase (anon/public) già inizializzato
-      - SUPABASE_SERVICE_ROLE_KEY: stringa (opzionale). Se presente useremo il client admin per aggiornare l'Auth.
-    """
+
     if not user:
         st.error("User non disponibile.")
         return
-
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
     temp_key = f"{field}_temp"
     input_key = f"{field}_input"
     save_key = f"save_{field}"
@@ -897,8 +885,6 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
 
     # Crea il client admin e chiama admin.update_user_by_id
     try:
-        # prendi SUPABASE_URL dal client pubblico per creare admin client in modo conveniente
-        SUPABASE_URL = supabase_client.base_url if hasattr(supabase_client, "base_url") else None
         # fallback: prova ad accedere all'URL dalle proprietà più comuni
         if not SUPABASE_URL:
             SUPABASE_URL = getattr(supabase_client, "_url", None) or getattr(supabase_client, "url", None)
