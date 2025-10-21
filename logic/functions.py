@@ -777,7 +777,13 @@ def update_user_field(user, field, label):
         try:
             upd_resp = supabase.table("class_new").update({field: new_val}).eq("who", user["who"]).execute()
             upd_resp = supabase.table("teams").update({field: new_val}).eq("who", user["who"]).execute()
-            if field 
+            if field == 'mail':
+                const { data, error } = await supabase.auth.updateUser({ email: new_val });
+                if (error) {
+                  console.error('Errore aggiornamento email:', error);
+                } else {
+                  console.log('Aggiornamento avviato:', data);
+                }
         except Exception as e:
             st.error(f"Error: {e}")
             return
