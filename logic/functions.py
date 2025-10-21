@@ -824,8 +824,6 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
 
     if _extract_error(resp_class) or _extract_error(resp_teams):
         st.error(f"Database update error: {_extract_error(resp_class) or _extract_error(resp_teams)}")
-        st.write("resp_class debug:", _extract_data(resp_class))
-        st.write("resp_teams debug:", _extract_data(resp_teams))
         return
 
     # opzionale: aggiorna profiles per coerenza (se richiesto)
@@ -834,7 +832,6 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
             resp_profiles = supabase_client.from_(profiles_table_name).update({field: new_val}).eq("id", user.get("id")).execute()
             if _extract_error(resp_profiles):
                 st.warning(f"Warning updating profiles table: {_extract_error(resp_profiles)}")
-                st.write("resp_profiles debug:", _extract_data(resp_profiles))
         except Exception as e:
             st.warning(f"Exception updating profiles table: {e}")
 
@@ -867,8 +864,7 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
         try:
             q = supabase_client.from_(profiles_table_name).select("id").eq("email", user.get("mail")).limit(1).execute()
             if _extract_error(q):
-                # ignora l'errore ma logga
-                st.write("DEBUG profiles lookup error:", _extract_error(q))
+                
             else:
                 data = _extract_data(q) or []
                 if isinstance(data, list) and data:
@@ -908,7 +904,6 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
 
     # controlla risposta admin
     admin_err = _extract_error(admin_resp)
-    st.write("DEBUG admin_resp:", _extract_data(admin_resp))
     if admin_err:
         st.error(f"Admin update failed: {admin_err}")
         return
@@ -916,7 +911,7 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
     # aggiornamento andato a buon fine
     user["mail"] = new_val
     st.session_state["user"] = user
-    st.success("Email aggiornata correttamente (admin update).")
+    st.success("Email updated!")
     if temp_key in st.session_state:
         del st.session_state[temp_key]
     return
