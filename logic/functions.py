@@ -776,6 +776,7 @@ def update_user_field(user, field, label):
             return
         try:
             upd_resp = supabase.table("class_new").update({field: new_val}).eq("who", user["who"]).execute()
+            upd_resp = supabase.table("teams").update({field: new_val}).eq("who", user["who"]).execute()
         except Exception as e:
             st.error(f"Error: {e}")
             return
