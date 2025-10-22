@@ -57,6 +57,11 @@ def go_to_screen(new_screen):
 
 # -------------------------------------------------------------------------------------------
 
+def color_to_rgb(hex_color):
+    return [int(hex_color[i:i+2], 16) for i in (1, 3, 5)]
+    
+# -------------------------------------------------------------------------------------------
+
 def _parse_display_value(raw):
     if raw is None:
         return "N/A"
