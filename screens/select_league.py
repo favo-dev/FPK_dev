@@ -548,12 +548,10 @@ def league_screen(user):
                                 inserted = ins.data or []
                                 st.info(f"Copied {len(inserted)} rows into {table_name} for league '{dest_league}'.")
 
-                        # copia regole da "Fantamotori" a nuova league per mgp e f1
                         TEMPLATE_LEAGUE = "Fantamotori"
                         copy_rules_from_template("rules_mgp_new", TEMPLATE_LEAGUE, league_id)
                         copy_rules_from_template("rules_f1_new", TEMPLATE_LEAGUE, league_id)
 
-                        # inserisci una riga in roll_of_honor_new con year=current year e league=league_id
                         try:
                             roh_row = {"year": datetime.now().year, "league": league_id}
                             roh_ins = supabase.from_("roll_of_honor_new").insert(roh_row).execute()
@@ -564,7 +562,6 @@ def league_screen(user):
                         except Exception as e:
                             st.error(f"Exception inserting roll_of_honor_new: {e}")
 
-                        # inserisci una riga in penalty_new con uuid = user's UUID e league = league_id
                         try:
                             penalty_row = {"uuid": user.get("UUID"), "league": league_id}
                             pen_ins = supabase.from_("penalty_new").insert(penalty_row).execute()
