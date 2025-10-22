@@ -816,8 +816,19 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
 
     # 1) aggiorna tabelle custom
     try:
-        resp_class = supabase_client.from_("class_new").update({field: new_val}).eq("who", user["who"]).execute()
-        resp_teams = supabase_client.from_("teams").update({field: new_val}).eq("who", user["who"]).execute()
+        if field == "mail" or field == 'who' or field == 'where':
+            resp_class = supabase_client.from_("class_new").update({field: new_val}).eq("who", user["who"]).execute()
+            resp_teams = supabase_client.from_("teams").update({field: new_val}).eq("who", user["who"]).execute()
+        if field == 'name':
+            resp_teams = (
+                supabase_client
+                .from_("teams")
+                .update({field: new_val})
+                .eq("who", user["who"])
+                .eq("league", user["league"]) 
+                .execute()
+            )
+            
     except Exception as e:
         st.error(f"DB update exception: {e}")
         return
