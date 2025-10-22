@@ -791,7 +791,6 @@ def _extract_data(resp):
 
 # --- funzione principale ---
 def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE_KEY=None, update_profiles_table=False, profiles_table_name="profiles"):
-    st.write(user)
     if not user:
         st.error("User non disponibile.")
         return
@@ -828,13 +827,9 @@ def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE
                 .eq("league", user["league"]) 
                 .execute()
             )
-            
+       
     except Exception as e:
         st.error(f"DB update exception: {e}")
-        return
-
-    if _extract_error(resp_class) or _extract_error(resp_teams):
-        st.error(f"Database update error: {_extract_error(resp_class) or _extract_error(resp_teams)}")
         return
 
     # opzionale: aggiorna profiles per coerenza (se richiesto)
