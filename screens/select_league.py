@@ -1,6 +1,7 @@
 import html as _html
 import json
 import hashlib
+import uuid
 from datetime import datetime
 import streamlit as st
 from supabase import create_client, Client
