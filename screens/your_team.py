@@ -4,7 +4,7 @@ import json
 import html as _html
 from supabase import create_client
 import streamlit as st
-from logic.functions import safe_rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value
+from logic.functions import safe_rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value, color_to_rgb
 from screens.show_racers import show_racer_screen
 
 # -------------------------------------------------------------------------------------------
