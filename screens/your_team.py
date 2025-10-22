@@ -121,10 +121,10 @@ def your_team_screen(user):
         update_user_field(user, "where", "Location",supabase)
         new_main = st.color_picker("Principal color", value=safe_rgb_to_hex(user.get("main color", [255,255,255])))
         if st.button("Save principal color", use_container_width=True):
-            supabase.table("class").update({"main color": color_to_rgb(new_main)}).eq("ID", user["ID"]).execute(); st.success("Principal color updated!")
+            supabase.table("teams").update({"main color": color_to_rgb(new_main)}).eq("who", user["who"]).eq("league", user["league"]).execute(); st.success("Principal color updated!")
         new_second = st.color_picker("Second color", value=safe_rgb_to_hex(user.get("second color", [0,0,0])))
         if st.button("Save second color", use_container_width=True):
-            supabase.table("class").update({"second color": color_to_rgb(new_second)}).eq("ID", user["ID"]).execute(); st.success("Second color updated!")
+            supabase.table("teams").update({"second color": color_to_rgb(new_second)}).eq("who", user["who"]).eq("league", user["league"]).execute(); st.success("Secondary color updated!")
         st.markdown("</div>", unsafe_allow_html=True)
 
   
