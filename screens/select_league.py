@@ -1,5 +1,6 @@
 import html as _html
 import json
+import time
 import hashlib
 from datetime import datetime
 import streamlit as st
@@ -661,4 +662,5 @@ def league_screen(user):
                                 st.rerun()
                             else:
                                 st.error("League created, but team creation failed.")
+                            time.sleep(180)
 
