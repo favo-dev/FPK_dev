@@ -1,6 +1,5 @@
 import html as _html
 import json
-import time
 import hashlib
 from datetime import datetime
 import streamlit as st
@@ -502,8 +501,6 @@ def league_screen(user):
                         st.session_state["selected_league"] = league_id
 
                         # ------------------ NUOVE OPERAZIONI RICHIESTE ------------------
-                        # helper: copia tutte le righe di `table_name` con league == src_league,
-                        # sostituisci "league" con dest_league e inserisci in tabella stessa.
                         def copy_rules_from_template(table_name, src_league, dest_league):
                             try:
                                 resp = supabase.from_(table_name).select("*").eq("league", src_league).execute()
@@ -522,15 +519,17 @@ def league_screen(user):
 
                             insert_rows = []
                             for r in rows:
-                                # copia tutti i campi tranne possibili PK / timestamps
+        # copia tutti i campi tranne possibili PK / timestamps
                                 new_r = {}
                                 for k, v in r.items():
-                                    # escludiamo colonne comunemente generate dal DB
+            # escludiamo colonne comunemente generate dal DB
                                     if k.lower() in ("id", "uuid", "created_at", "updated_at"):
                                         continue
                                     new_r[k] = v
-                                # sovrascriviamo la league con quella nuova
+        # sovrascriviamo la league con quella nuova
                                 new_r["league"] = dest_league
+        # generiamo un nuovo id (UUID) per la riga inserita
+                                new_r["id"] = str(uuid.uuid4())
                                 insert_rows.append(new_r)
 
                             if not insert_rows:
@@ -549,12 +548,17 @@ def league_screen(user):
                                 inserted = ins.data or []
                                 st.info(f"Copied {len(inserted)} rows into {table_name} for league '{dest_league}'.")
 
+
                         TEMPLATE_LEAGUE = "Fantamotori"
                         copy_rules_from_template("rules_mgp_new", TEMPLATE_LEAGUE, league_id)
                         copy_rules_from_template("rules_f1_new", TEMPLATE_LEAGUE, league_id)
 
                         try:
-                            roh_row = {"year": datetime.now().year, "league": league_id}
+                            roh_row = {
+                                "id": str(uuid.uuid4()),
+                                "year": datetime.now().year,
+                                "league": league_id
+                            }
                             roh_ins = supabase.from_("roll_of_honor_new").insert(roh_row).execute()
                             if getattr(roh_ins, "error", None):
                                 st.error(f"Error inserting into roll_of_honor_new: {roh_ins.error}")
@@ -564,7 +568,11 @@ def league_screen(user):
                             st.error(f"Exception inserting roll_of_honor_new: {e}")
 
                         try:
-                            penalty_row = {"uuid": user.get("UUID"), "league": league_id}
+                            penalty_row = {
+                                "id": str(uuid.uuid4()),
+                                "uuid": user.get("UUID"),
+                                "league": league_id
+                            }
                             pen_ins = supabase.from_("penalty_new").insert(penalty_row).execute()
                             if getattr(pen_ins, "error", None):
                                 st.error(f"Error inserting into penalty_new: {pen_ins.error}")
@@ -574,15 +582,23 @@ def league_screen(user):
                             st.error(f"Exception inserting penalty_new: {e}")
 
                         try:
-                            call_row = {"uuid": user.get("UUID"), "league": league_id}
+                            call_row = {
+                                "id": str(uuid.uuid4()),
+                                "uuid": user.get("UUID"),
+                                "league": league_id
+                            }
 
+    # Insert per calls_f1_new
                             cf1_ins = supabase.from_("calls_f1_new").insert(call_row).execute()
                             if getattr(cf1_ins, "error", None):
                                 st.error(f"Error inserting into calls_f1_new: {cf1_ins.error}")
                             else:
                                 st.info("Inserted calls_f1_new row for league.")
 
-                            cmgp_ins = supabase.from_("calls_mgp_new").insert(call_row).execute()
+    # Per calls_mgp_new vogliamo un id diverso — ne generiamo un altro
+                            call_row_mgp = dict(call_row)
+                            call_row_mgp["id"] = str(uuid.uuid4())
+                            cmgp_ins = supabase.from_("calls_mgp_new").insert(call_row_mgp).execute()
                             if getattr(cmgp_ins, "error", None):
                                 st.error(f"Error inserting into calls_mgp_new: {cmgp_ins.error}")
                             else:
@@ -599,7 +615,7 @@ def league_screen(user):
                             - player_col: colonna nella tabella racers (di solito "id")
                             - player_field_in_stats: campo in stats_table dove salvare l'id del giocatore (di solito "player_id")
                             Nota: non includiamo "uuid" perchè lo genera il DB/Supabase automaticamente.
-                            """
+                             """
                             try:
                                 racers_resp = supabase.from_(racers_table).select(player_col).eq("go", True).execute()
                                 if getattr(racers_resp, "error", None):
@@ -623,23 +639,21 @@ def league_screen(user):
                             except Exception as e:
                                 st.error(f"Eccezione durante creazione {stats_table}: {e}")
 
-
-                        # chiama la funzione per F1 (compatibile col codice esistente)
+# chiama la funzione per F1 (compatibile col codice esistente)
                         create_stats_for_series(league_id, "racers_f1_new", "league_f1_stats", player_col="id", player_field_in_stats="player_id")
 
-                        # chiama la funzione per MotoGP
+# chiama la funzione per MotoGP
                         create_stats_for_series(league_id, "racers_mgp_new", "league_mgp_stats", player_col="id", player_field_in_stats="player_id")
 
 
-
-                        # Colori HEX → RGB
+# Colori HEX → RGB
                         main_color_rgb = hex_to_rgb(st.session_state.get("main_color_hex", "#00CAFF"))
                         second_color_rgb = hex_to_rgb(st.session_state.get("second_color_hex", "#FFFFFF"))
 
                         if main_color_rgb is None or second_color_rgb is None:
                             st.error("Errore nella conversione dei colori. Riprova.")
                         else:
-                            # crea la squadra (usa nomi colonna con spazi come nel tuo DB)
+    # crea la squadra (usa nomi colonna con spazi come nel tuo DB)
                             team_inserted = build_team(
                                 st.session_state.get("user"),
                                 league_id,
@@ -651,7 +665,7 @@ def league_screen(user):
                             )
 
                             if team_inserted:
-                                # aggiorna cronologia e nav, poi torna alla home (team)
+        # aggiorna cronologia e nav, poi torna alla home (team)
                                 hist = st.session_state.get("screen_history", [])
                                 hist.append("leagues")
                                 st.session_state["screen_history"] = hist
@@ -662,5 +676,4 @@ def league_screen(user):
                                 st.rerun()
                             else:
                                 st.error("League created, but team creation failed.")
-                            time.sleep(180)
-
+                            
