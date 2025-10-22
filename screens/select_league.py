@@ -499,6 +499,84 @@ def league_screen(user):
                     else:
                         st.success(f"League '{league_id}' created successfully.")
                         st.session_state["selected_league"] = league_id
+
+                        # ------------------ NUOVE OPERAZIONI RICHIESTE ------------------
+                        # helper: copia tutte le righe di `table_name` con league == src_league,
+                        # sostituisci "league" con dest_league e inserisci in tabella stessa.
+                        def copy_rules_from_template(table_name, src_league, dest_league):
+                            try:
+                                resp = supabase.from_(table_name).select("*").eq("league", src_league).execute()
+                            except Exception as e:
+                                st.error(f"Exception reading {table_name}: {e}")
+                                return
+
+                            if getattr(resp, "error", None):
+                                st.error(f"Error reading {table_name}: {resp.error}")
+                                return
+
+                            rows = resp.data or []
+                            if not rows:
+                                st.info(f"No rows found in {table_name} for league '{src_league}'.")
+                                return
+
+                            insert_rows = []
+                            for r in rows:
+                                # copia tutti i campi tranne possibili PK / timestamps
+                                new_r = {}
+                                for k, v in r.items():
+                                    # escludiamo colonne comunemente generate dal DB
+                                    if k.lower() in ("id", "uuid", "created_at", "updated_at"):
+                                        continue
+                                    new_r[k] = v
+                                # sovrascriviamo la league con quella nuova
+                                new_r["league"] = dest_league
+                                insert_rows.append(new_r)
+
+                            if not insert_rows:
+                                st.info(f"No rows to insert for {table_name} after filtering.")
+                                return
+
+                            try:
+                                ins = supabase.from_(table_name).insert(insert_rows).execute()
+                            except Exception as e:
+                                st.error(f"Exception inserting into {table_name}: {e}")
+                                return
+
+                            if getattr(ins, "error", None):
+                                st.error(f"Error inserting into {table_name}: {ins.error}")
+                            else:
+                                inserted = ins.data or []
+                                st.info(f"Copied {len(inserted)} rows into {table_name} for league '{dest_league}'.")
+
+                        # copia regole da "Fantamotori" a nuova league per mgp e f1
+                        TEMPLATE_LEAGUE = "Fantamotori"
+                        copy_rules_from_template("rules_mgp_new", TEMPLATE_LEAGUE, league_id)
+                        copy_rules_from_template("rules_f1_new", TEMPLATE_LEAGUE, league_id)
+
+                        # inserisci una riga in roll_of_honor_new con year=current year e league=league_id
+                        try:
+                            roh_row = {"year": datetime.now().year, "league": league_id}
+                            roh_ins = supabase.from_("roll_of_honor_new").insert(roh_row).execute()
+                            if getattr(roh_ins, "error", None):
+                                st.error(f"Error inserting into roll_of_honor_new: {roh_ins.error}")
+                            else:
+                                st.info(f"Inserted roll_of_honor_new row for year {roh_row['year']}.")
+                        except Exception as e:
+                            st.error(f"Exception inserting roll_of_honor_new: {e}")
+
+                        # inserisci una riga in penalty_new con uuid = user's UUID e league = league_id
+                        try:
+                            penalty_row = {"uuid": user.get("UUID"), "league": league_id}
+                            pen_ins = supabase.from_("penalty_new").insert(penalty_row).execute()
+                            if getattr(pen_ins, "error", None):
+                                st.error(f"Error inserting into penalty_new: {pen_ins.error}")
+                            else:
+                                st.info("Inserted penalty_new row for league.")
+                        except Exception as e:
+                            st.error(f"Exception inserting penalty_new: {e}")
+
+                        # ------------------ FINE NUOVE OPERAZIONI ------------------
+
                         # --- crea le righe in league_f1_stats per tutti i racers con go == TRUE ---
                         # --- crea le righe in league_*_stats per tutti i racers con go == TRUE ---
                         def create_stats_for_series(league_id, racers_table, stats_table, player_col="id", player_field_in_stats="player_id"):
@@ -534,10 +612,10 @@ def league_screen(user):
                                 st.error(f"Eccezione durante creazione {stats_table}: {e}")
 
 
-# chiama la funzione per F1 (compatibile col codice esistente)
+                        # chiama la funzione per F1 (compatibile col codice esistente)
                         create_stats_for_series(league_id, "racers_f1_new", "league_f1_stats", player_col="id", player_field_in_stats="player_id")
 
-# chiama la funzione per MotoGP
+                        # chiama la funzione per MotoGP
                         create_stats_for_series(league_id, "racers_mgp_new", "league_mgp_stats", player_col="id", player_field_in_stats="player_id")
 
 
@@ -572,5 +650,4 @@ def league_screen(user):
                                 st.rerun()
                             else:
                                 st.error("League created, but team creation failed.")
-
 
