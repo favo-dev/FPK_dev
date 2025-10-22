@@ -575,10 +575,24 @@ def league_screen(user):
                         except Exception as e:
                             st.error(f"Exception inserting penalty_new: {e}")
 
-                        # ------------------ FINE NUOVE OPERAZIONI ------------------
+                        try:
+                            call_row = {"uuid": user.get("UUID"), "league": league_id}
 
-                        # --- crea le righe in league_f1_stats per tutti i racers con go == TRUE ---
-                        # --- crea le righe in league_*_stats per tutti i racers con go == TRUE ---
+                            cf1_ins = supabase.from_("calls_f1_new").insert(call_row).execute()
+                            if getattr(cf1_ins, "error", None):
+                                st.error(f"Error inserting into calls_f1_new: {cf1_ins.error}")
+                            else:
+                                st.info("Inserted calls_f1_new row for league.")
+
+                            cmgp_ins = supabase.from_("calls_mgp_new").insert(call_row).execute()
+                            if getattr(cmgp_ins, "error", None):
+                                st.error(f"Error inserting into calls_mgp_new: {cmgp_ins.error}")
+                            else:
+                                st.info("Inserted calls_mgp_new row for league.")
+
+                        except Exception as e:
+                            st.error(f"Exception inserting into calls tables: {e}")
+
                         def create_stats_for_series(league_id, racers_table, stats_table, player_col="id", player_field_in_stats="player_id"):
                             """
                             Inserisce in stats_table una riga per ogni racer presente in racers_table con go == True.
