@@ -583,27 +583,40 @@ def league_screen(user):
                             st.error(f"Exception inserting penalty_new: {e}")
 
                         try:
-                            call_row = {
+    # prepara riga per calls_f1_new
+                            call_row_f1 = {
                                 "id": str(uuid.uuid4()),
                                 "uuid": user.get("UUID"),
                                 "league": league_id
                             }
 
-    # Insert per calls_f1_new
-                            cf1_ins = supabase.from_("calls_f1_new").insert(call_row).execute()
+                            cf1_ins = supabase.from_("calls_f1_new").insert([call_row_f1]).execute()
                             if getattr(cf1_ins, "error", None):
                                 st.error(f"Error inserting into calls_f1_new: {cf1_ins.error}")
                             else:
-                                st.info("Inserted calls_f1_new row for league.")
+        # mostra i dettagli restituiti (se presenti)
+                                inserted_f1 = (cf1_ins.data or [])
+                                if inserted_f1:
+                                    st.info(f"Inserted calls_f1_new row (id={inserted_f1[0].get('id') or call_row_f1['id']}).")
+                                else:
+                                    st.info("Inserted calls_f1_new row (no returned row data).")
 
-    # Per calls_mgp_new vogliamo un id diverso — ne generiamo un altro
-                            call_row_mgp = dict(call_row)
-                            call_row_mgp["id"] = str(uuid.uuid4())
-                            cmgp_ins = supabase.from_("calls_mgp_new").insert(call_row_mgp).execute()
+    # prepara riga per calls_mgp_new (uuid diverso)
+                            call_row_mgp = {
+                                "id": str(uuid.uuid4()),
+                                "uuid": user.get("UUID"),
+                                "league": league_id
+                            }
+
+                            cmgp_ins = supabase.from_("calls_mgp_new").insert([call_row_mgp]).execute()
                             if getattr(cmgp_ins, "error", None):
                                 st.error(f"Error inserting into calls_mgp_new: {cmgp_ins.error}")
                             else:
-                                st.info("Inserted calls_mgp_new row for league.")
+                                inserted_mgp = (cmgp_ins.data or [])
+                                if inserted_mgp:
+                                    st.info(f"Inserted calls_mgp_new row (id={inserted_mgp[0].get('id') or call_row_mgp['id']}).")
+                                else:
+                                    st.info("Inserted calls_mgp_new row (no returned row data).")
 
                         except Exception as e:
                             st.error(f"Exception inserting into calls tables: {e}")
