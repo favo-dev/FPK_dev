@@ -586,7 +586,7 @@ def league_screen(user):
     # prepara riga per calls_f1_new
                             call_row_f1 = {
                                 "id": str(uuid.uuid4()),
-                                "uuid": user.get("UUID"),
+                                "uuid": player_uuid,
                                 "league": league_id
                             }
 
@@ -596,11 +596,7 @@ def league_screen(user):
                             else:
         # mostra i dettagli restituiti (se presenti)
                                 inserted_f1 = (cf1_ins.data or [])
-                                if inserted_f1:
-                                    st.info(f"Inserted calls_f1_new row (id={inserted_f1[0].get('id') or call_row_f1['id']}).")
-                                else:
-                                    st.info("Inserted calls_f1_new row (no returned row data).")
-
+                            
     # prepara riga per calls_mgp_new (uuid diverso)
                             call_row_mgp = {
                                 "id": str(uuid.uuid4()),
@@ -613,10 +609,6 @@ def league_screen(user):
                                 st.error(f"Error inserting into calls_mgp_new: {cmgp_ins.error}")
                             else:
                                 inserted_mgp = (cmgp_ins.data or [])
-                                if inserted_mgp:
-                                    st.info(f"Inserted calls_mgp_new row (id={inserted_mgp[0].get('id') or call_row_mgp['id']}).")
-                                else:
-                                    st.info("Inserted calls_mgp_new row (no returned row data).")
 
                         except Exception as e:
                             st.error(f"Exception inserting into calls tables: {e}")
