@@ -600,7 +600,7 @@ def league_screen(user):
     # prepara riga per calls_mgp_new (uuid diverso)
                             call_row_mgp = {
                                 "id": str(uuid.uuid4()),
-                                "uuid": user.get("UUID"),
+                                "uuid": player_uuid,
                                 "league": league_id
                             }
 
