@@ -791,7 +791,7 @@ def _extract_data(resp):
 
 # --- funzione principale ---
 def update_user_field(user, field, label, supabase_client, SUPABASE_SERVICE_ROLE_KEY=None, update_profiles_table=False, profiles_table_name="profiles"):
-
+    st.write(user)
     if not user:
         st.error("User non disponibile.")
         return
