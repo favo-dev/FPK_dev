@@ -536,9 +536,10 @@ def league_screen(user):
                         "foundation": foundation,
                         "president": president_uuid,
                         # SALVA i nuovi campi nella tabella leagues
-                        "f1_total_pilots": f1_total,
-                        "mgp_total_pilots": mgp_total,
-                        "active_pilots_total": active_total,
+                        "team_constituent_f1": f1_total,
+                        "team_constituent_mgp": mgp_total,
+                        "active_f1": active_total,
+                        "active_mgp": active_total,
                     }
 
                     insert_resp = supabase.from_("leagues").insert(new_league).execute()
