@@ -22,9 +22,20 @@ if "league_visibility" not in st.session_state:
 if "league_pw_input" not in st.session_state:
     st.session_state.league_pw_input = ""
 # keep other form-related keys initially empty to avoid KeyError
-for k in ("league_name", "league_location", "team_name", "team_location", "main_color_hex", "second_color_hex"):
+for k in (
+    "league_name", "league_location",
+    "team_name", "team_location",
+    "main_color_hex", "second_color_hex",
+    # nuovi campi per il numero di piloti (defaults sensati)
+    "f1_total_pilots", "mgp_total_pilots", "active_pilots_total",
+):
     if k not in st.session_state:
-        st.session_state[k] = ""
+        # per i conteggi inizializziamo come interi (valori di default utili)
+        if k in ("f1_total_pilots", "mgp_total_pilots", "active_pilots_total"):
+            # default: 3 piloti totali per serie, 3 attivi
+            st.session_state[k] = 3
+        else:
+            st.session_state[k] = ""
 
 # -------------------------------------------------------------------------------------------
 # --------------------- UTILITY -------------------------------------------------------------
@@ -51,7 +62,7 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
     """
     Crea una riga nella tabella `teams`.
     Usa i nomi di colonna esatti (con spazio) che hai in Supabase:
-    "main color" e "second color".
+    \"main color\" e \"second color\".
     """
     if not user:
         st.error("User non disponibile. Impossibile creare la squadra.")
@@ -262,23 +273,22 @@ def league_screen(user):
             if not lid:
                 st.error("Please provide a league ID to search.")
             else:
-            # cerca la league
+                # cerca la league
                 resp = supabase.from_("leagues").select("*").eq("ID", lid).limit(1).execute()
                 league_data = resp.data or []
                 if not league_data:
                     st.error(f"League with ID '{lid}' not found.")
                 else:
-                # prima di salvare la league trovata, verifica se l'utente è già iscritto
+                    # prima di salvare la league trovata, verifica se l'utente è già iscritto
                     already_resp = supabase.from_("teams").select("*").eq("UUID", player_uuid).eq("league", lid).limit(1).execute()
                     already_rows = already_resp.data or []
                     if already_rows:
-                    # utente già iscritto: mostra messaggio e offri link per aprire la propria squadra
+                        # utente già iscritto: mostra messaggio e offri link per aprire la propria squadra
                         st.error("You are already enrolled in this league.")
-                    # non salvare join_league_found — lascia il form pulito
                     else:
-                    # non è ancora iscritto: salva league trovata e mostra il form di join
+                        # non è ancora iscritto: salva league trovata e mostra il form di join
                         st.session_state["join_league_found"] = league_data[0]
-                    # reset eventuali vecchi valori di join per evitare artefatti
+                        # reset eventuali vecchi valori di join per evitare artefatti
                         for k in ("join_league_pw_input","join_team_name","join_team_location","join_main_color_hex","join_second_color_hex"):
                             if k in st.session_state:
                                 st.session_state.pop(k, None)
@@ -293,9 +303,9 @@ def league_screen(user):
             st.markdown(f"- **Foundation:** {_html.escape(str(league.get('foundation') or 'N/A'))}")
             is_private = bool(league.get("pwrd"))  # se pwrd è non-empty -> privata
 
-        # bottone per cercare un'altra league (reset)
+            # bottone per cercare un'altra league (reset)
             if st.button("Search another league", key="reset_join_search"):
-            # puliamo tutte le chiavi relative al join
+                # puliamo tutte le chiavi relative al join
                 for k in ("join_league_found","join_league_id","join_league_pw_input","join_team_name","join_team_location","join_main_color_hex","join_second_color_hex"):
                     st.session_state.pop(k, None)
                 st.rerun()
@@ -303,7 +313,7 @@ def league_screen(user):
             st.markdown("---")
             st.markdown("### Create your team in this league")
 
-        # form per la creazione della team e join della league
+            # form per la creazione della team e join della league
             with st.form("join_league_form"):
                 if is_private:
                     st.info("This league is private — enter the league password to join.")
@@ -311,7 +321,7 @@ def league_screen(user):
                 else:
                     st.write("This league is public — no password required to join.")
 
-            # team fields (usiamo key-specific per non interferire con il form 'create' esistente)
+                # team fields (usiamo key-specific per non interferire con il form 'create' esistente)
                 join_team_name = st.text_input("Team name", key="join_team_name")
                 join_team_location = st.text_input(
                     "Team location (where)",
@@ -324,7 +334,7 @@ def league_screen(user):
                 submit_join = st.form_submit_button("Join league & create team")
 
             if submit_join:
-            # validazioni client-side
+                # validazioni client-side
                 team_name_val = (st.session_state.get("join_team_name") or "").strip()
                 team_location_val = (st.session_state.get("join_team_location") or "").strip()
                 pw_val = st.session_state.get("join_league_pw_input", "") or ""
@@ -335,12 +345,12 @@ def league_screen(user):
                 elif not team_location_val:
                     st.error("Please provide a team location.")
                 else:
-                # ricontrollo safety: evitare che nel frattempo l'utente sia stato iscritto
+                    # ricontrollo safety: evitare che nel frattempo l'utente sia stato iscritto
                     check_resp = supabase.from_("teams").select("*").eq("UUID", player_uuid).eq("league", league_id).limit(1).execute()
                     if check_resp.data:
                         st.error("You are already enrolled in this league.")
                     else:
-                    # se la league è privata, controlla password (hash SHA256 come durante la creazione)
+                        # se la league è privata, controlla password (hash SHA256 come durante la creazione)
                         stored_pw_hash = league.get("pwrd") or ""
                         if stored_pw_hash:
                             if not pw_val:
@@ -350,7 +360,7 @@ def league_screen(user):
                                 if entered_hash != stored_pw_hash:
                                     st.error("Incorrect league password.")
                                 else:
-                                # password OK -> crea team
+                                    # password OK -> crea team
                                     main_color_rgb = hex_to_rgb(st.session_state.get("join_main_color_hex", "#00CAFF"))
                                     second_color_rgb = hex_to_rgb(st.session_state.get("join_second_color_hex", "#FFFFFF"))
                                     if main_color_rgb is None or second_color_rgb is None:
@@ -366,7 +376,7 @@ def league_screen(user):
                                             league.get("foundation"),
                                         )
                                         if team_inserted:
-                                        # pulisco il form di join così non rimane visibile nelle sessioni successive
+                                            # pulisco il form di join così non rimane visibile nelle sessioni successive
                                             for k in ("join_league_found","join_league_id","join_league_pw_input","join_team_name","join_team_location","join_main_color_hex","join_second_color_hex"):
                                                 st.session_state.pop(k, None)
                                             st.success(f"Joined league '{league_id}' and created team '{team_name_val}'.")
@@ -381,7 +391,7 @@ def league_screen(user):
                                         else:
                                             st.error("Team creation failed after joining league.")
                         else:
-                        # league pubblica -> crea team direttamente
+                            # league pubblica -> crea team direttamente
                             main_color_rgb = hex_to_rgb(st.session_state.get("join_main_color_hex", "#00CAFF"))
                             second_color_rgb = hex_to_rgb(st.session_state.get("join_second_color_hex", "#FFFFFF"))
                             if main_color_rgb is None or second_color_rgb is None:
@@ -397,7 +407,7 @@ def league_screen(user):
                                     league.get("foundation"),
                                 )
                                 if team_inserted:
-                                # pulisco il form di join così non rimane visibile nelle sessioni successive
+                                    # pulisco il form di join così non rimane visibile nelle sessioni successive
                                     for k in ("join_league_found","join_league_id","join_league_pw_input","join_team_name","join_team_location","join_main_color_hex","join_second_color_hex"):
                                         st.session_state.pop(k, None)
                                     st.success(f"Joined league '{league_id}' and created team '{team_name_val}'.")
@@ -451,6 +461,26 @@ def league_screen(user):
             main_color_hex = st.color_picker("Main color", value="#00CAFF", help="Choose main team color", key="main_color_hex")
             second_color_hex = st.color_picker("Second color", value="#FFFFFF", help="Choose secondary team color", key="second_color_hex")
 
+            st.write("---")
+            st.write("**League pilots configuration**")
+            # Totali piloti per serie: min 2 max 4
+            f1_total_pilots = st.number_input(
+                "Total pilots for F1 (min 2, max 4)",
+                min_value=2, max_value=4, value=int(st.session_state.get("f1_total_pilots", 3)),
+                step=1, key="f1_total_pilots"
+            )
+            mgp_total_pilots = st.number_input(
+                "Total pilots for MotoGP (min 2, max 4)",
+                min_value=2, max_value=4, value=int(st.session_state.get("mgp_total_pilots", 3)),
+                step=1, key="mgp_total_pilots"
+            )
+            # Totale piloti attivi (global): min 1 max 4
+            active_pilots_total = st.number_input(
+                "Total active pilots (min 1, max 4)",
+                min_value=1, max_value=4, value=int(st.session_state.get("active_pilots_total", 3)),
+                step=1, key="active_pilots_total"
+            )
+
             submit_all = st.form_submit_button("Create league and team")
 
         # Quando l'utente preme Create (submit_all è True), valida e salva
@@ -463,6 +493,11 @@ def league_screen(user):
             team_name_val = st.session_state.get("team_name", "").strip()
             team_location_val = st.session_state.get("team_location", "").strip()
 
+            # nuovi valori piloti
+            f1_total = int(st.session_state.get("f1_total_pilots", 3))
+            mgp_total = int(st.session_state.get("mgp_total_pilots", 3))
+            active_total = int(st.session_state.get("active_pilots_total", 3))
+
             # validazioni
             if not league_name_val:
                 st.error("Please provide a league name.")
@@ -474,6 +509,14 @@ def league_screen(user):
                 st.error("Please provide a team name.")
             elif not team_location_val:
                 st.error("Please provide a team location.")
+            elif not (2 <= f1_total <= 4):
+                st.error("Total pilots for F1 must be between 2 and 4.")
+            elif not (2 <= mgp_total <= 4):
+                st.error("Total pilots for MotoGP must be between 2 and 4.")
+            elif not (1 <= active_total <= 4):
+                st.error("Total active pilots must be between 1 and 4.")
+            elif active_total > (f1_total + mgp_total):
+                st.error("Total active pilots cannot exceed the sum of total pilots for F1 and MotoGP.")
             else:
                 league_id = league_name_val
                 # check esistenza league
@@ -492,6 +535,10 @@ def league_screen(user):
                         "pwrd": pw_hash,
                         "foundation": foundation,
                         "president": president_uuid,
+                        # SALVA i nuovi campi nella tabella leagues
+                        "f1_total_pilots": f1_total,
+                        "mgp_total_pilots": mgp_total,
+                        "active_pilots_total": active_total,
                     }
 
                     insert_resp = supabase.from_("leagues").insert(new_league).execute()
@@ -520,16 +567,16 @@ def league_screen(user):
 
                             insert_rows = []
                             for r in rows:
-        # copia tutti i campi tranne possibili PK / timestamps
+                                # copia tutti i campi tranne possibili PK / timestamps
                                 new_r = {}
                                 for k, v in r.items():
-            # escludiamo colonne comunemente generate dal DB
+                                    # escludiamo colonne comunemente generate dal DB
                                     if k.lower() in ("id", "uuid", "created_at", "updated_at"):
                                         continue
                                     new_r[k] = v
-        # sovrascriviamo la league con quella nuova
+                                # sovrascriviamo la league con quella nuova
                                 new_r["league"] = dest_league
-        # generiamo un nuovo id (UUID) per la riga inserita
+                                # generiamo un nuovo id (UUID) per la riga inserita
                                 new_r["id"] = str(uuid.uuid4())
                                 insert_rows.append(new_r)
 
@@ -583,7 +630,7 @@ def league_screen(user):
                             st.error(f"Exception inserting penalty_new: {e}")
 
                         try:
-    # prepara riga per calls_f1_new
+                            # prepara riga per calls_f1_new
                             call_row_f1 = {
                                 "id": str(uuid.uuid4()),
                                 "uuid": player_uuid,
@@ -594,10 +641,9 @@ def league_screen(user):
                             if getattr(cf1_ins, "error", None):
                                 st.error(f"Error inserting into calls_f1_new: {cf1_ins.error}")
                             else:
-        # mostra i dettagli restituiti (se presenti)
                                 inserted_f1 = (cf1_ins.data or [])
-                            
-    # prepara riga per calls_mgp_new (uuid diverso)
+
+                            # prepara riga per calls_mgp_new (uuid diverso)
                             call_row_mgp = {
                                 "id": str(uuid.uuid4()),
                                 "uuid": player_uuid,
@@ -621,7 +667,7 @@ def league_screen(user):
                             - player_col: colonna nella tabella racers (di solito "id")
                             - player_field_in_stats: campo in stats_table dove salvare l'id del giocatore (di solito "player_id")
                             Nota: non includiamo "uuid" perchè lo genera il DB/Supabase automaticamente.
-                             """
+                            """
                             try:
                                 racers_resp = supabase.from_(racers_table).select(player_col).eq("go", True).execute()
                                 if getattr(racers_resp, "error", None):
@@ -645,21 +691,20 @@ def league_screen(user):
                             except Exception as e:
                                 st.error(f"Eccezione durante creazione {stats_table}: {e}")
 
-# chiama la funzione per F1 (compatibile col codice esistente)
+                        # chiama la funzione per F1 (compatibile col codice esistente)
                         create_stats_for_series(league_id, "racers_f1_new", "league_f1_stats", player_col="id", player_field_in_stats="player_id")
 
-# chiama la funzione per MotoGP
+                        # chiama la funzione per MotoGP
                         create_stats_for_series(league_id, "racers_mgp_new", "league_mgp_stats", player_col="id", player_field_in_stats="player_id")
 
-
-# Colori HEX → RGB
+                        # Colori HEX → RGB
                         main_color_rgb = hex_to_rgb(st.session_state.get("main_color_hex", "#00CAFF"))
                         second_color_rgb = hex_to_rgb(st.session_state.get("second_color_hex", "#FFFFFF"))
 
                         if main_color_rgb is None or second_color_rgb is None:
                             st.error("Errore nella conversione dei colori. Riprova.")
                         else:
-    # crea la squadra (usa nomi colonna con spazi come nel tuo DB)
+                            # crea la squadra (usa nomi colonna con spazi come nel tuo DB)
                             team_inserted = build_team(
                                 st.session_state.get("user"),
                                 league_id,
@@ -671,7 +716,7 @@ def league_screen(user):
                             )
 
                             if team_inserted:
-        # aggiorna cronologia e nav, poi torna alla home (team)
+                                # aggiorna cronologia e nav, poi torna alla home (team)
                                 hist = st.session_state.get("screen_history", [])
                                 hist.append("leagues")
                                 st.session_state["screen_history"] = hist
@@ -682,4 +727,4 @@ def league_screen(user):
                                 st.rerun()
                             else:
                                 st.error("League created, but team creation failed.")
-                            
+
