@@ -368,6 +368,7 @@ def callup_screen(user):
 
         if st.button(f"Save {champ_name} Call-up"):
             selected = [st.session_state[k1], st.session_state[k2], st.session_state[k3]]
+            st.write(user)
             if len(set(selected)) < 3:
                 st.error("You shall select three different pilots")
             else:
