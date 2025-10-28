@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client
 from datetime import datetime, timezone
 from logic.functions import normalize_riders
+import pandas as pd
 
 # -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
@@ -19,6 +20,80 @@ def callup_screen(user):
         st.rerun()
 
     st.header("Call-ups")
+
+    def fetch_team_map():
+        """Fetch mapping from class.team -> class.name.
+        Falls back to class.ID -> name and then to a generic teams table if necessary.
+        This implements exactly the logic you specified: the `team` value stored in
+        `calls_f1.team` / `calls_mgp.team` will be looked up against `class.team`.
+        Returns a dict {team_key: team_name}.
+        """
+        # Primary attempt: class table with (team, name)
+        try:
+            class_rows = supabase.from_("class").select("team,name").execute().data
+            if class_rows:
+                return {r.get("team"): r.get("name") for r in class_rows if r.get("team") is not None}
+        except Exception:
+            pass
+
+        # Secondary attempt: class table with (ID, name) - for schemas that use ID as key
+        try:
+            class_rows = supabase.from_("class").select("ID,name").execute().data
+            if class_rows:
+                return {r.get("ID"): r.get("name") for r in class_rows}
+        except Exception:
+            pass
+
+        # Tertiary attempt: teams table (try team or ID as key)
+        try:
+            teams_rows = supabase.from_("teams").select("team,name,ID").execute().data
+            if teams_rows:
+                mapping = {}
+                for r in teams_rows:
+                    key = r.get("team") if r.get("team") is not None else r.get("ID")
+                    mapping[key] = r.get("name")
+                return mapping
+        except Exception:
+            pass
+
+        # If nothing found, return empty map
+        return {}
+
+    def display_calls_table(table_name, team_map, caption=None):
+        """Fetch the calls table, replace team IDs with names using team_map and show as a table.
+        """
+        try:
+            calls = supabase.from_(table_name).select("*").execute().data or []
+        except Exception:
+            calls = []
+
+        # If no rows, show a small message
+        if not calls:
+            st.info(f"Nessuna chiamata disponibile per {table_name}.")
+            return
+
+        # Replace team ids with names when possible
+        processed = []
+        for r in calls:
+            row = dict(r)  # copy
+            team_id = row.get("team")
+            # If team is already a dict/object (e.g. supabase foreign relation), try to extract name
+            if isinstance(team_id, dict):
+                name = team_id.get("name") or team_id.get("Name") or str(team_id)
+            else:
+                name = team_map.get(team_id, team_id)
+            row["team"] = name
+            processed.append(row)
+
+        # Reorder columns if possible to show the most relevant first
+        df = pd.DataFrame(processed)
+        preferred_order = ["team", "first", "second", "reserve", "when"]
+        cols = [c for c in preferred_order if c in df.columns] + [c for c in df.columns if c not in preferred_order]
+        df = df[cols]
+
+        if caption:
+            st.markdown(f"**{caption}**")
+        st.dataframe(df)
 
     def display_race_section(champ_name, champ_code, user_key, callup_key):
         st.subheader(champ_name)
@@ -69,7 +144,7 @@ def callup_screen(user):
 
         remaining_seconds = delta.total_seconds()
         if remaining_seconds < 0:
-       
+
             days = hours = minutes = seconds = 0
             progress = 1.0
             color_bar = "#dc3545"  
@@ -118,13 +193,13 @@ def callup_screen(user):
         else:
             progress = max(0.0, min(1.0, 1.0 - (remaining_seconds / WEEK)))
 
-    
+
         TH_2_DAYS = 48 * 3600
         TH_1_DAY = 24 * 3600
         TH_2_HOURS = 2 * 3600
         TH_30_MIN = 30 * 60
 
-    
+
         if remaining_seconds <= TH_30_MIN:
             color_bar = "#dc3545" 
         elif remaining_seconds <= TH_2_HOURS:
@@ -224,6 +299,13 @@ def callup_screen(user):
             </style>
         """, unsafe_allow_html=True)
 
+        # --- display the calls table under the button ---
+        team_map = fetch_team_map()
+        if "f1" in callup_key:
+            display_calls_table("calls_f1", team_map, caption="Tabella calls_f1")
+        if "mgp" in callup_key:
+            display_calls_table("calls_mgp", team_map, caption="Tabella calls_mgp")
+
     display_race_section("F1", "F1", "F1", "f1")
 
     st.markdown("""
@@ -237,6 +319,7 @@ def callup_screen(user):
     display_race_section("MotoGP", "MGP", "MotoGP", "mgp")
 
     # -------------------------------------------------------------------------------------------
+
 
     st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("Back to team"):
