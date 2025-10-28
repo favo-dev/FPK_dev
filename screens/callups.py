@@ -1,11 +1,9 @@
-import streamlit as st
+import html as _html
 from supabase import create_client
+import streamlit as st
 from datetime import datetime, timezone
 from logic.functions import normalize_riders
-import pandas as pd
 
-# -------------------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------
 # --------------------- SUPABASE CLIENT --------------------------------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -15,6 +13,15 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # --------------------- CALL-UP SCREEN ----------------------------------------------------
 
 def callup_screen(user):
+    """
+    Nuova logica:
+    - legge la league dell'utente (user) e i campi team_constituent_* e active_*
+    - popola/aggiorna la riga in calls_f1_new / calls_mgp_new con uuid == user['UUID']
+    - mostra dinamicamente A selectboxes per gli active slots (A = active_*) e R = N - A
+      selectboxes per le riserve dove N = team_constituent_*.
+    - aggiorna Supabase al submit
+    """
+
     if st.session_state.get("force_rerun", False):
         st.session_state.force_rerun = False
         st.rerun()
@@ -22,29 +29,19 @@ def callup_screen(user):
     st.header("Call-ups")
 
     def fetch_team_map():
-        """Fetch mapping from class.team -> class.name.
-        Falls back to class.ID -> name and then to a generic teams table if necessary.
-        This implements exactly the logic you specified: the `team` value stored in
-        `calls_f1.team` / `calls_mgp.team` will be looked up against `class.team`.
-        Returns a dict {team_key: team_name}.
-        """
-        # Primary attempt: class table with (team, name)
+        """Try to map class.team -> class.name, with sensible fallbacks."""
         try:
-            class_rows = supabase.from_("class").select("team,name").execute().data
+            class_rows = supabase.from_("class_new").select("team,name").execute().data
             if class_rows:
                 return {r.get("team"): r.get("name") for r in class_rows if r.get("team") is not None}
         except Exception:
             pass
-
-        # Secondary attempt: class table with (ID, name) - for schemas that use ID as key
         try:
             class_rows = supabase.from_("class").select("ID,name").execute().data
             if class_rows:
                 return {r.get("ID"): r.get("name") for r in class_rows}
         except Exception:
             pass
-
-        # Tertiary attempt: teams table (try team or ID as key)
         try:
             teams_rows = supabase.from_("teams").select("team,name,ID").execute().data
             if teams_rows:
@@ -55,386 +52,261 @@ def callup_screen(user):
                 return mapping
         except Exception:
             pass
-
-        # If nothing found, return empty map
         return {}
 
-    def display_calls_table(table_name, team_map, caption=None, prev_limit_iso=None):
-        """Fetch the calls table, replace team IDs with names using team_map and render a static
-        styled HTML table with fixed column headers: Team, First Driver, Second Driver, Reserve, Date.
-        Date is formatted as H:M:S, DD/MM/YYYY. If prev_limit_iso is provided, rows with `when` before
-        that limit will show N/A for all columns except Team.
+    def ensure_calls_row(table_name, user_uuid, league_id=None):
+        """
+        Ensure a row exists in calls_*_new for this user's uuid.
+        Returns the row dict (freshly read).
         """
         try:
-            calls = supabase.from_(table_name).select("*").execute().data or []
+            resp = supabase.from_(table_name).select("*").eq("uuid", user_uuid).limit(1).execute()
+            rows = resp.data or []
+            if rows:
+                return rows[0]
+            # if no row exists, create a minimal one (uuid + league if available)
+            base = {"uuid": user_uuid}
+            if league_id:
+                base["league"] = league_id
+            ins = supabase.from_(table_name).insert([base]).execute()
+            if getattr(ins, "error", None):
+                # insertion failed, but return the base to avoid crashes
+                return base
+            return (ins.data or [base])[0]
         except Exception:
-            calls = []
+            return {"uuid": user_uuid}
 
-        if not calls:
-            st.info(f"Nessuna chiamata disponibile per {table_name}.")
-            return
+    # helper to build update payload with variable active/reserve fields
+    def build_calls_payload_from_selections(active_selected, reserve_selected):
+        """
+        active_selected: list ordered ['Driver A', 'Driver B', ...] (len A)
+        reserve_selected: list ordered ['Res A', 'Res B', ...] (len R)
+        returns dict mapping column names -> values
+        """
+        payload = {}
+        # map active slots
+        active_cols = ["first", "second", "third", "fourth"]
+        for i, v in enumerate(active_selected):
+            if i < len(active_cols):
+                payload[active_cols[i]] = v
+        # fill remaining active cols with empty string / None if not used
+        for j in range(len(active_selected), len(active_cols)):
+            payload[active_cols[j]] = None
 
-        import html as _html
-        from datetime import datetime
+        # reserves mapping
+        reserve_cols = ["reserve", "reserve_two", "reserve_three", "reserve_four"]
+        for i, v in enumerate(reserve_selected):
+            if i < len(reserve_cols):
+                payload[reserve_cols[i]] = v
+        # clear extra reserve cols if not used
+        for j in range(len(reserve_selected), len(reserve_cols)):
+            payload[reserve_cols[j]] = None
 
-        # CSS adapted from your racers_screen styling; give Team more space and ensure names have same font size
-        st.markdown(
-            """
-        <style>
-          .racers-container { font-family: sans-serif; color: #fff; }
-          .header-row { display: flex; gap: 12px; padding: 10px 16px; font-weight: 700; background: #000; color: #fff; border-radius: 10px; align-items:center; }
-          .row-box { display: flex; gap: 16px; padding: 12px 18px; align-items: center; border-radius: 12px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 56px; }
-          .row-box .col-team { flex: 6; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .row-box .col-first { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
-          .row-box .col-second { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
-          .row-box .col-reserve { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
-          .row-box .col-date { flex: 1; min-width: 140px; text-align: right; color: #fff; font-weight: 600; }
-          .header-row .h-col { padding: 0 8px; }
-          /* ensure name parts have same font size */
-          .name-first { display:block; font-size:14px; line-height:1.05; }
-          .name-last { display:block; font-size:14px; line-height:1.05; opacity:0.95; }
-        </style>
-            """,
-            unsafe_allow_html=True,
-        )
+        return payload
 
-        st.markdown('<div class="racers-container">', unsafe_allow_html=True)
+    def render_section(category_name, champ_code, user_key, calls_table_name, league):
+        """Render UI for a specific category (F1 / MotoGP) and handle saving."""
+        st.subheader(category_name)
 
-        # Title (caption)
-        if caption:
-            st.markdown(f"<h4 style='margin:6px 0 10px 0;color:#fff;font-weight:700'>{_html.escape(caption)}</h4>", unsafe_allow_html=True)
-
-        # Header
-        header_html = (
-            """
-            <div class="header-row">
-              <div class="h-col" style="flex:6">Team</div>
-              <div class="h-col" style="flex:2">First Driver</div>
-              <div class="h-col" style="flex:2">Second Driver</div>
-              <div class="h-col" style="flex:2">Reserve</div>
-              <div class="h-col" style="flex:1; text-align:right; min-width:140px">Date</div>
-            </div>
-            """
-        )
-        st.markdown(header_html, unsafe_allow_html=True)
-
-        def format_name_for_display(name_raw):
-            # Split name into parts; show first name then newline then last name(s) with same font size
-            if not name_raw:
-                return ""
-            parts = str(name_raw).strip().split()
-            if len(parts) == 1:
-                return _html.escape(parts[0])
-            # special-case Fabio Di Giannantonio: keep last name together as 'Di Giannantonio'
-            lower = str(name_raw).strip().lower()
-            if lower == 'fabio di giannantonio':
-                first = _html.escape(parts[0])
-                last = _html.escape(' '.join(parts[1:]))
-                return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
-            first = _html.escape(parts[0])
-            last = _html.escape(" ".join(parts[1:]))
-            # use two spans with the same font-size classes
-            return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
-
-        # parse previous limit if provided
-        prev_limit_dt = None
-        if prev_limit_iso:
-            try:
-                prev_limit_dt = datetime.fromisoformat(str(prev_limit_iso))
-            except Exception:
-                prev_limit_dt = None
-
-        for r in calls:
-            # Resolve team name from team_map - support team being an object or a raw key
-            team_id = r.get("team")
-            if isinstance(team_id, dict):
-                team_name = team_id.get("name") or team_id.get("Name") or str(team_id)
-            else:
-                team_name = team_map.get(team_id, team_id)
-
-            first_raw = r.get("first") or ""
-            second_raw = r.get("second") or ""
-            reserve_raw = r.get("reserve") or ""
-
-            # default displays
-            first_display = format_name_for_display(first_raw)
-            second_display = format_name_for_display(second_raw)
-            reserve_display = format_name_for_display(reserve_raw)
-
-            when_raw = r.get("when") or r.get("When") or ""
-            date_str = _html.escape(str(when_raw))
-
-            # check if we should show N/A based on prev_limit_dt
-            show_na = False
-            try:
-                if prev_limit_dt and when_raw:
-                    when_dt = datetime.fromisoformat(str(when_raw))
-                    if when_dt < prev_limit_dt:
-                        show_na = True
-            except Exception:
-                show_na = False
-
-            if show_na:
-                first_display = second_display = reserve_display = "N/A"
-                date_str = "N/A"
-            else:
-                try:
-                    dt = datetime.fromisoformat(str(when_raw))
-                    date_str = dt.strftime('%H:%M:%S, %d/%m/%Y')
-                except Exception:
-                    # leave raw string escaped
-                    pass
-
-            row_html = (
-                '<div class="row-box">'
-                f'<div class="col-team" title="{_html.escape(str(team_name))}">{_html.escape(str(team_name))}</div>'
-                f'<div class="col-first" title="{_html.escape(str(first_raw))}">{first_display}</div>'
-                f'<div class="col-second" title="{_html.escape(str(second_raw))}">{second_display}</div>'
-                f'<div class="col-reserve" title="{_html.escape(str(reserve_raw))}">{reserve_display}</div>'
-                f'<div class="col-date">{_html.escape(date_str)}</div>'
-                '</div>'
-            )
-
-            st.markdown(row_html, unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    def display_race_section(champ_name, champ_code, user_key, callup_key):
-        st.subheader(champ_name)
-
-
-        if "F1" in champ_code:
-            champ = supabase.from_("championship_f1").select("*").execute().data
-            howmany = 0
-            for element in champ:
-                if element['number'] >= howmany:
-                    howmany = element['number']
-            for race in champ:
-                if race["status"] is True:
-                    next_race = race
-                    break
-
-        if "MGP" in champ_code:
-            champ = supabase.from_("championship_mgp").select("*").execute().data
-            howmany = 0
-            for element in champ:
-                if element['number'] >= howmany:
-                    howmany = element['number']
-            for race in champ:
-                if race["status"] is True:
-                    next_race = race
-                    break
-
-        limit_dt = datetime.fromisoformat(next_race["limit"])
-        if limit_dt.tzinfo is None:
-            limit_dt = limit_dt.replace(tzinfo=timezone.utc)
-
-        now_utc = datetime.now(timezone.utc)
-        delta = limit_dt - now_utc
-
-        st.markdown(f"""
-            <div style="
-                background-color: #2f2f2f;
-                color: #eee;
-                padding: 12px;
-                border-radius: 10px;
-                margin-bottom: 10px;
-                border: 2px solid red;
-                font-weight: bold;
-            ">
-                Next race: {next_race['ID']} ({next_race['number']}/{howmany})
-            </div>
-        """, unsafe_allow_html=True)
-
-        remaining_seconds = delta.total_seconds()
-        if remaining_seconds < 0:
-
-            days = hours = minutes = seconds = 0
-            progress = 1.0
-            color_bar = "#dc3545"  
-            st.markdown(f"""
-                <div style="
-                    background-color: #444;
-                    border-radius: 20px;
-                    overflow: hidden;
-                    height: 18px;
-                    margin-bottom: 6px;
-                ">
-                    <div style="
-                        width: {100*progress:.1f}%;
-                        height: 100%;
-                        background-color: {color_bar};
-                        transition: width 0.4s ease;
-                    "></div>
-                </div>
-                <div style="color:#ddd; font-weight:600; margin-bottom: 12px;">
-                    Remaining time: {days} days, {hours} hours, {minutes} minutes, {seconds} seconds
-                </div>
-                <div style="
-                    background-color: #3a1a1a;
-                    color: #ff6666;
-                    padding: 10px;
-                    border-radius: 8px;
-                    margin-bottom: 10px;
-                    font-weight: bold;
-                ">
-                    Time is up - call-ups are no longer available
-                </div>
-            """, unsafe_allow_html=True)
-            return
-
-        days = delta.days
-        hours, remainder = divmod(delta.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-
-        days = delta.days
-        hours, remainder = divmod(delta.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-
-        WEEK = 7 * 24 * 3600
-        if remaining_seconds > WEEK:
-            progress = 0.0
-        else:
-            progress = max(0.0, min(1.0, 1.0 - (remaining_seconds / WEEK)))
-
-
-        TH_2_DAYS = 48 * 3600
-        TH_1_DAY = 24 * 3600
-        TH_2_HOURS = 2 * 3600
-        TH_30_MIN = 30 * 60
-
-
-        if remaining_seconds <= TH_30_MIN:
-            color_bar = "#dc3545" 
-        elif remaining_seconds <= TH_2_HOURS:
-            color_bar = "#ff9800" 
-        elif remaining_seconds <= TH_1_DAY:
-            color_bar = "#ffc107" 
-        else:
-            color_bar = "#28a745" 
-
-        st.markdown(f"""
-            <div style="
-                background-color: #444;
-                border-radius: 20px;
-                overflow: hidden;
-                height: 18px;
-                margin-bottom: 6px;
-            ">
-                <div style="
-                    width: {100*progress:.1f}%;
-                    height: 100%;
-                    background-color: {color_bar};
-                    transition: width 0.4s ease;
-                "></div>
-            </div>
-            <div style="color:#ddd; font-weight:600; margin-bottom: 12px;">
-                Remaining time: {days} days, {hours} hours, {minutes} minutes, {seconds} seconds
-            </div>
-        """, unsafe_allow_html=True)
-
-        drivers = user.get(user_key, [])
+        # drivers available from user's profile
+        drivers = user.get(user_key, []) or []
         drivers = normalize_riders(drivers)
-        if len(drivers) < 3:
-            st.error("Devi avere almeno 3 piloti nel team per scegliere First/Second/Reserve.")
-            return
 
-        k1 = f"{callup_key}_1"
-        k2 = f"{callup_key}_2"
-        k3 = f"{callup_key}_3"
+        # league settings for this category
+        # N = team_constituent_{f1|mgp}
+        # A = active_{f1|mgp}  (could be 0..4)
+        if champ_code == "F1":
+            N = league.get("team_constituent_f1") or league.get("team_constituent") or league.get("team_constituent_f1", None)
+            A = league.get("active_f1") if league.get("active_f1") is not None else league.get("active_f1", 0)
+        else:
+            # MotoGP
+            N = league.get("team_constituent_mgp") or league.get("team_constituent_mgp", None)
+            # accept both active_mgp or active_gp as field names
+            A = league.get("active_mgp") if league.get("active_mgp") is not None else league.get("active_gp", 0)
 
-        if k1 not in st.session_state or st.session_state[k1] not in drivers:
-            st.session_state[k1] = drivers[0]
-        if k2 not in st.session_state or st.session_state[k2] not in drivers:
-            st.session_state[k2] = drivers[1] if len(drivers) > 1 else drivers[0]
-        if k3 not in st.session_state or st.session_state[k3] not in drivers:
-            st.session_state[k3] = drivers[2] if len(drivers) > 2 else drivers[0]
-
-        st.selectbox(
-            "First " + ("driver" if champ_code == "F1" else "rider"),
-            drivers,
-            key=k1
-        )
-        st.selectbox(
-            "Second " + ("driver" if champ_code == "F1" else "rider"),
-            drivers,
-            key=k2
-        )
-        st.selectbox(
-            "Reserve " + ("driver" if champ_code == "F1" else "rider"),
-            drivers,
-            key=k3
-        )
-
-        if st.button(f"Save {champ_name} Call-up"):
-            selected = [st.session_state[k1], st.session_state[k2], st.session_state[k3]]
-            if len(set(selected)) < 3:
-                st.error("You shall select three different pilots")
-            else:
-                now_str = datetime.now(timezone.utc).isoformat()
-                if "f1" in callup_key:
-                    supabase.table("calls_f1").update({"first": st.session_state[k1]}).eq("team", user["ID"]).execute()
-                    supabase.table("calls_f1").update({"second": st.session_state[k2]}).eq("team", user["ID"]).execute()
-                    supabase.table("calls_f1").update({"reserve": st.session_state[k3]}).eq("team", user["ID"]).execute()
-                    supabase.table("calls_f1").update({"when": now_str}).eq("team", user["ID"]).execute()
-                    st.success("Operation completed!")
-
-                if "mgp" in callup_key:
-                    supabase.table("calls_mgp").update({"first": st.session_state[k1]}).eq("team", user["ID"]).execute()
-                    supabase.table("calls_mgp").update({"second": st.session_state[k2]}).eq("team", user["ID"]).execute()
-                    supabase.table("calls_mgp").update({"reserve": st.session_state[k3]}).eq("team", user["ID"]).execute()
-                    supabase.table("calls_mgp").update({"when": now_str}).eq("team", user["ID"]).execute()
-                    st.success("Operation completed!")
-
-        st.markdown("""
-            <style>
-            div.stButton > button {
-                background-color: #007bff;
-                color: white;
-                border: none;
-                padding: 0.4em 1.2em;
-                border-radius: 8px;
-                font-weight: 600;
-            }
-            div.stButton > button:hover {
-                background-color: #0056b3;
-                color: white;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        # --- display the calls table under the button ---
-        team_map = fetch_team_map()
-        # determine previous race's limit (the latest race with status False before the current True one)
-        prev_limit_iso = None
         try:
-            prev_candidates = [x for x in champ if x.get('number') < next_race.get('number') and x.get('status') is False]
-            if prev_candidates:
-                prev_race = max(prev_candidates, key=lambda z: z.get('number', 0))
-                prev_limit_iso = prev_race.get('limit')
+            N = int(N) if N is not None else None
         except Exception:
-            prev_limit_iso = None
+            N = None
+        try:
+            A = int(A) if A is not None else 0
+        except Exception:
+            A = 0
 
-        if "f1" in callup_key:
-            display_calls_table("calls_f1", team_map, caption="Call-ups | F1", prev_limit_iso=prev_limit_iso)
-        if "mgp" in callup_key:
-            display_calls_table("calls_mgp", team_map, caption="Call ups | MotoGP", prev_limit_iso=prev_limit_iso)
+        # sanity bounds
+        if N is None:
+            st.warning(f"League configuration missing team size for {category_name}.")
+            return
+        if N < 1:
+            st.warning(f"Invalid team size ({N}) for {category_name}.")
+            return
+        if A < 0:
+            A = 0
+        if A > 4:
+            A = 4
+        if A > N:
+            # cannot have more active slots than total components; cap
+            A = N
 
-    display_race_section("F1", "F1", "F1", "f1")
+        R = max(0, N - A)  # number of reserves
 
-    st.markdown("""
+        # minimal checks on available drivers
+        if len(drivers) < N:
+            st.error(f"Hai solo {len(drivers)} piloti disponibili ma la squadra richiede {N}. Aggiorna la tua rosa prima.")
+            # still allow editing but warn and don't proceed to save
+        # ensure calls row exists
+        user_uuid = user.get("UUID")
+        calls_row = ensure_calls_row(calls_table_name, user_uuid, league.get("ID"))
+
+        st.markdown(f"**Team size:** {N} — **Active slots:** {A} — **Reserves:** {R}")
+
+        # prepare keys and session defaults
+        active_keys = [f"{calls_table_name}_active_{i}" for i in range(A)]
+        reserve_keys = [f"{calls_table_name}_reserve_{i}" for i in range(R)]
+
+        # initialize defaults in session_state if missing (try to read existing calls_row values)
+        for i, k in enumerate(active_keys):
+            # try to read from calls_row mapping: first, second, third, fourth
+            existing_val = None
+            if i == 0:
+                existing_val = calls_row.get("first")
+            elif i == 1:
+                existing_val = calls_row.get("second")
+            elif i == 2:
+                existing_val = calls_row.get("third")
+            elif i == 3:
+                existing_val = calls_row.get("fourth")
+            if k not in st.session_state:
+                st.session_state[k] = existing_val if existing_val else (drivers[i] if i < len(drivers) else "")
+
+        for i, k in enumerate(reserve_keys):
+            # map to reserve, reserve_two, reserve_three, reserve_four
+            existing_val = None
+            if i == 0:
+                existing_val = calls_row.get("reserve")
+            elif i == 1:
+                existing_val = calls_row.get("reserve_two")
+            elif i == 2:
+                existing_val = calls_row.get("reserve_three")
+            elif i == 3:
+                existing_val = calls_row.get("reserve_four")
+            if k not in st.session_state:
+                st.session_state[k] = existing_val if existing_val else (drivers[A + i] if (A + i) < len(drivers) else "")
+
+        st.write("")  # spacing
+
+        # Build ordered selection UI ensuring uniqueness: for each select, options omit previously chosen selections
+        chosen = []
+
+        # Active selects
+        active_selected = []
+        for i, k in enumerate(active_keys):
+            opts = [d for d in drivers if d not in chosen]
+            # if current session value is not in opts and non-empty, add it (so it remains selectable)
+            cur = st.session_state.get(k, "")
+            if cur and cur not in opts:
+                opts = [cur] + opts
+            # Provide a placeholder label for each active slot
+            label = ["First", "Second", "Third", "Fourth"][i] if i < 4 else f"Active {i+1}"
+            st.session_state[k] = st.selectbox(f"{label} ({category_name})", opts, index=opts.index(st.session_state[k]) if st.session_state[k] in opts else 0, key=k)
+            val = st.session_state[k]
+            if val:
+                chosen.append(val)
+            active_selected.append(val)
+
+        # Reserve selects
+        reserve_selected = []
+        for i, k in enumerate(reserve_keys):
+            opts = [d for d in drivers if d not in chosen]
+            cur = st.session_state.get(k, "")
+            if cur and cur not in opts:
+                opts = [cur] + opts
+            # label sequence for reserves
+            label = ["Reserve", "Reserve Two", "Reserve Three", "Reserve Four"][i] if i < 4 else f"Reserve {i+1}"
+            st.session_state[k] = st.selectbox(f"{label} ({category_name})", opts, index=opts.index(st.session_state[k]) if st.session_state[k] in opts else 0, key=k)
+            val = st.session_state[k]
+            if val:
+                chosen.append(val)
+            reserve_selected.append(val)
+
+        st.write("")  # spacing
+
+        # Save button handling
+        save_key = f"save_{calls_table_name}_{user_uuid}"
+        if st.button(f"Save {category_name} Call-up", key=save_key):
+            # validate non-empty and uniqueness
+            all_selected = [v for v in (active_selected + reserve_selected) if v]
+            if len(all_selected) < (A + R):
+                st.error(f"Devi selezionare tutti i {A + R} piloti richiesti ({A} attivi + {R} riserve).")
+                return
+            if len(set(all_selected)) < len(all_selected):
+                st.error("Devi selezionare piloti distinti, senza duplicati.")
+                return
+
+            # build payload
+            payload = build_calls_payload_from_selections(active_selected, reserve_selected)
+            # add/update timestamp
+            payload["when"] = datetime.now(timezone.utc).isoformat()
+
+            # attempt update; if update affects 0 rows (no matching uuid), insert
+            try:
+                upd = supabase.table(calls_table_name).update(payload).eq("uuid", user_uuid).execute()
+                # supabase python client returns a .data list even on update; if update returned empty, try insert/upsert
+                if getattr(upd, "error", None):
+                    st.warning(f"Update returned error: {upd.error} — attempting upsert/insert.")
+                    # try upsert (may require primary key handling on your schema)
+                    try:
+                        # include uuid and league if available
+                        to_insert = dict(payload)
+                        to_insert["uuid"] = user_uuid
+                        if league and league.get("ID"):
+                            to_insert["league"] = league.get("ID")
+                        ins = supabase.from_(calls_table_name).insert([to_insert]).execute()
+                        if getattr(ins, "error", None):
+                            st.error(f"Insert also failed: {ins.error}")
+                            return
+                        st.success("Call-up saved (insert).")
+                        return
+                    except Exception as e:
+                        st.error(f"Unexpected exception while inserting call-up: {e}")
+                        return
+                else:
+                    st.success("Call-up updated successfully.")
+            except Exception as e:
+                st.error(f"Exception while saving call-up: {e}")
+
+    # --- top-level: determine user's league ---
+    # the user's league might be stored in user['league'] or user['league_id'] or in session selected_league
+    user_league_id = user.get("league") or user.get("league_id") or st.session_state.get("selected_league")
+    if not user_league_id:
+        st.warning("League not found for this user (user['league'] missing). Cannot apply league-specific rules.")
+        # Still attempt to render a simple fallback: use default N=3, A=1
+        league_row = {"ID": None, "team_constituent_f1": 3, "team_constituent_mgp": 3, "active_f1": 1, "active_mgp": 1}
+    else:
+        league_resp = supabase.from_("leagues").select("*").eq("ID", user_league_id).limit(1).execute()
+        league_rows = league_resp.data or []
+        if league_rows:
+            league_row = league_rows[0]
+        else:
+            st.warning(f"League '{user_league_id}' not found in DB; using defaults.")
+            league_row = {"ID": user_league_id, "team_constituent_f1": 3, "team_constituent_mgp": 3, "active_f1": 1, "active_mgp": 1}
+
+    # render F1 section and connect it to calls_f1_new
+    render_section("F1", "F1", "F1", "calls_f1_new", league_row)
+
+    st.markdown(
+        """
         <hr style="
             border: 1.5px solid #555;
             margin: 40px 0 30px 0;
             border-radius: 5px;
         ">
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-    display_race_section("MotoGP", "MGP", "MotoGP", "mgp")
-
-    # -------------------------------------------------------------------------------------------
-
-
+    # render MotoGP section and connect it to calls_mgp_new
+    render_section("MotoGP", "MGP", "MotoGP", "calls_mgp_new", league_row)
 
 
 
