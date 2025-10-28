@@ -108,20 +108,16 @@ def callup_screen(user):
         """Render UI for a specific category (F1 / MotoGP) and handle saving."""
         st.subheader(category_name)
 
-        # drivers available from user's profile
+    # drivers available from user's profile
         drivers = user.get(user_key, []) or []
         drivers = normalize_riders(drivers)
 
-        # league settings for this category
-        # N = team_constituent_{f1|mgp}
-        # A = active_{f1|mgp}  (could be 0..4)
+    # league settings for this category
         if champ_code == "F1":
-            N = league.get("team_constituent_f1") or league.get("team_constituent") or league.get("team_constituent_f1", None)
-            A = league.get("active_f1") if league.get("active_f1") is not None else league.get("active_f1", 0)
+            N = league.get("team_constituent_f1") or league.get("team_constituent") or None
+            A = league.get("active_f1") if league.get("active_f1") is not None else 0
         else:
-            # MotoGP
-            N = league.get("team_constituent_mgp") or league.get("team_constituent_mgp", None)
-            # accept both active_mgp or active_gp as field names
+            N = league.get("team_constituent_mgp") or None
             A = league.get("active_mgp") if league.get("active_mgp") is not None else league.get("active_gp", 0)
 
         try:
@@ -133,7 +129,7 @@ def callup_screen(user):
         except Exception:
             A = 0
 
-        # sanity bounds
+    # sanity bounds
         if N is None:
             st.warning(f"League configuration missing team size for {category_name}.")
             return
@@ -145,28 +141,25 @@ def callup_screen(user):
         if A > 4:
             A = 4
         if A > N:
-            # cannot have more active slots than total components; cap
             A = N
 
         R = max(0, N - A)  # number of reserves
 
-        # minimal checks on available drivers
         if len(drivers) < N:
             st.error(f"Hai solo {len(drivers)} piloti disponibili ma la squadra richiede {N}. Aggiorna la tua rosa prima.")
-            # still allow editing but warn and don't proceed to save
-        # ensure calls row exists
+
+    # ensure calls row exists
         user_uuid = user.get("UUID")
         calls_row = ensure_calls_row(calls_table_name, user_uuid, league.get("ID"))
 
         st.markdown(f"**Team size:** {N} — **Active slots:** {A} — **Reserves:** {R}")
 
-        # prepare keys and session defaults
+    # prepare keys and session defaults
         active_keys = [f"{calls_table_name}_active_{i}" for i in range(A)]
         reserve_keys = [f"{calls_table_name}_reserve_{i}" for i in range(R)]
 
-        # initialize defaults in session_state if missing (try to read existing calls_row values)
+    # initialize defaults in session_state if missing (but do it BEFORE creating widgets)
         for i, k in enumerate(active_keys):
-            # try to read from calls_row mapping: first, second, third, fourth
             existing_val = None
             if i == 0:
                 existing_val = calls_row.get("first")
@@ -176,11 +169,10 @@ def callup_screen(user):
                 existing_val = calls_row.get("third")
             elif i == 3:
                 existing_val = calls_row.get("fourth")
-            if k not in st.session_state:
-                st.session_state[k] = existing_val if existing_val else (drivers[i] if i < len(drivers) else "")
+            default_val = existing_val if existing_val else (drivers[i] if i < len(drivers) else "")
+            st.session_state.setdefault(k, default_val)
 
         for i, k in enumerate(reserve_keys):
-            # map to reserve, reserve_two, reserve_three, reserve_four
             existing_val = None
             if i == 0:
                 existing_val = calls_row.get("reserve")
@@ -190,51 +182,57 @@ def callup_screen(user):
                 existing_val = calls_row.get("reserve_three")
             elif i == 3:
                 existing_val = calls_row.get("reserve_four")
-            if k not in st.session_state:
-                st.session_state[k] = existing_val if existing_val else (drivers[A + i] if (A + i) < len(drivers) else "")
+            default_val = existing_val if existing_val else (drivers[A + i] if (A + i) < len(drivers) else "")
+            st.session_state.setdefault(k, default_val)
 
         st.write("")  # spacing
 
-        # Build ordered selection UI ensuring uniqueness: for each select, options omit previously chosen selections
+    # Build ordered selection UI ensuring uniqueness
         chosen = []
 
-        # Active selects
+    # Active selects
         active_selected = []
         for i, k in enumerate(active_keys):
+        # options exclude already chosen ones
             opts = [d for d in drivers if d not in chosen]
-            # if current session value is not in opts and non-empty, add it (so it remains selectable)
             cur = st.session_state.get(k, "")
             if cur and cur not in opts:
                 opts = [cur] + opts
-            # Provide a placeholder label for each active slot
+        # safe index computation
+            try:
+                idx = opts.index(cur) if cur in opts else 0
+            except Exception:
+                idx = 0
             label = ["First", "Second", "Third", "Fourth"][i] if i < 4 else f"Active {i+1}"
-            st.session_state[k] = st.selectbox(f"{label} ({category_name})", opts, index=opts.index(st.session_state[k]) if st.session_state[k] in opts else 0, key=k)
-            val = st.session_state[k]
+        # create widget (do NOT assign into st.session_state here)
+            val = st.selectbox(f"{label} ({category_name})", opts, index=idx, key=k)
+        # val is now stored in st.session_state[k] by Streamlit
             if val:
                 chosen.append(val)
             active_selected.append(val)
 
-        # Reserve selects
+    # Reserve selects
         reserve_selected = []
         for i, k in enumerate(reserve_keys):
             opts = [d for d in drivers if d not in chosen]
             cur = st.session_state.get(k, "")
             if cur and cur not in opts:
                 opts = [cur] + opts
-            # label sequence for reserves
+            try:
+                idx = opts.index(cur) if cur in opts else 0
+            except Exception:
+                idx = 0
             label = ["Reserve", "Reserve Two", "Reserve Three", "Reserve Four"][i] if i < 4 else f"Reserve {i+1}"
-            st.session_state[k] = st.selectbox(f"{label} ({category_name})", opts, index=opts.index(st.session_state[k]) if st.session_state[k] in opts else 0, key=k)
-            val = st.session_state[k]
+            val = st.selectbox(f"{label} ({category_name})", opts, index=idx, key=k)
             if val:
                 chosen.append(val)
             reserve_selected.append(val)
 
         st.write("")  # spacing
 
-        # Save button handling
+    # Save button handling
         save_key = f"save_{calls_table_name}_{user_uuid}"
         if st.button(f"Save {category_name} Call-up", key=save_key):
-            # validate non-empty and uniqueness
             all_selected = [v for v in (active_selected + reserve_selected) if v]
             if len(all_selected) < (A + R):
                 st.error(f"Devi selezionare tutti i {A + R} piloti richiesti ({A} attivi + {R} riserve).")
@@ -243,37 +241,27 @@ def callup_screen(user):
                 st.error("Devi selezionare piloti distinti, senza duplicati.")
                 return
 
-            # build payload
             payload = build_calls_payload_from_selections(active_selected, reserve_selected)
-            # add/update timestamp
             payload["when"] = datetime.now(timezone.utc).isoformat()
 
-            # attempt update; if update affects 0 rows (no matching uuid), insert
             try:
                 upd = supabase.table(calls_table_name).update(payload).eq("uuid", user_uuid).execute()
-                # supabase python client returns a .data list even on update; if update returned empty, try insert/upsert
-                if getattr(upd, "error", None):
-                    st.warning(f"Update returned error: {upd.error} — attempting upsert/insert.")
-                    # try upsert (may require primary key handling on your schema)
-                    try:
-                        # include uuid and league if available
-                        to_insert = dict(payload)
-                        to_insert["uuid"] = user_uuid
-                        if league and league.get("ID"):
-                            to_insert["league"] = league.get("ID")
-                        ins = supabase.from_(calls_table_name).insert([to_insert]).execute()
-                        if getattr(ins, "error", None):
-                            st.error(f"Insert also failed: {ins.error}")
-                            return
-                        st.success("Call-up saved (insert).")
+                if getattr(upd, "error", None) or (upd.data is None or len(upd.data) == 0):
+                # fallback: insert (include uuid + league)
+                    to_insert = dict(payload)
+                    to_insert["uuid"] = user_uuid
+                    if league and league.get("ID"):
+                        to_insert["league"] = league.get("ID")
+                    ins = supabase.from_(calls_table_name).insert([to_insert]).execute()
+                    if getattr(ins, "error", None):
+                        st.error(f"Insert failed: {ins.error}")
                         return
-                    except Exception as e:
-                        st.error(f"Unexpected exception while inserting call-up: {e}")
-                        return
-                else:
-                    st.success("Call-up updated successfully.")
+                    st.success("Call-up saved (insert).")
+                    return
+                st.success("Call-up updated successfully.")
             except Exception as e:
                 st.error(f"Exception while saving call-up: {e}")
+
 
     # --- top-level: determine user's league ---
     # the user's league might be stored in user['league'] or user['league_id'] or in session selected_league
