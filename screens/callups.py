@@ -59,10 +59,11 @@ def callup_screen(user):
         # If nothing found, return empty map
         return {}
 
-    def display_calls_table(table_name, team_map, caption=None):
+    def display_calls_table(table_name, team_map, caption=None, prev_limit_iso=None):
         """Fetch the calls table, replace team IDs with names using team_map and render a static
         styled HTML table with fixed column headers: Team, First Driver, Second Driver, Reserve, Date.
-        Date is formatted as H:M:S, DD/MM/YYYY.
+        Date is formatted as H:M:S, DD/MM/YYYY. If prev_limit_iso is provided, rows with `when` before
+        that limit will show N/A for all columns except Team.
         """
         try:
             calls = supabase.from_(table_name).select("*").execute().data or []
@@ -124,10 +125,24 @@ def callup_screen(user):
             parts = str(name_raw).strip().split()
             if len(parts) == 1:
                 return _html.escape(parts[0])
+            # special-case Fabio Di Giannantonio: keep last name together as 'Di Giannantonio'
+            lower = str(name_raw).strip().lower()
+            if lower == 'fabio di giannantonio':
+                first = _html.escape(parts[0])
+                last = _html.escape(' '.join(parts[1:]))
+                return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
             first = _html.escape(parts[0])
             last = _html.escape(" ".join(parts[1:]))
             # use two spans with the same font-size classes
             return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
+
+        # parse previous limit if provided
+        prev_limit_dt = None
+        if prev_limit_iso:
+            try:
+                prev_limit_dt = datetime.fromisoformat(str(prev_limit_iso))
+            except Exception:
+                prev_limit_dt = None
 
         for r in calls:
             # Resolve team name from team_map - support team being an object or a raw key
@@ -141,25 +156,41 @@ def callup_screen(user):
             second_raw = r.get("second") or ""
             reserve_raw = r.get("reserve") or ""
 
-            first = format_name_for_display(first_raw)
-            second = format_name_for_display(second_raw)
-            reserve = format_name_for_display(reserve_raw)
+            # default displays
+            first_display = format_name_for_display(first_raw)
+            second_display = format_name_for_display(second_raw)
+            reserve_display = format_name_for_display(reserve_raw)
 
             when_raw = r.get("when") or r.get("When") or ""
             date_str = _html.escape(str(when_raw))
+
+            # check if we should show N/A based on prev_limit_dt
+            show_na = False
             try:
-                dt = datetime.fromisoformat(str(when_raw))
-                date_str = dt.strftime('%H:%M:%S, %d/%m/%Y')
+                if prev_limit_dt and when_raw:
+                    when_dt = datetime.fromisoformat(str(when_raw))
+                    if when_dt < prev_limit_dt:
+                        show_na = True
             except Exception:
-                # leave raw string escaped
-                pass
+                show_na = False
+
+            if show_na:
+                first_display = second_display = reserve_display = "N/A"
+                date_str = "N/A"
+            else:
+                try:
+                    dt = datetime.fromisoformat(str(when_raw))
+                    date_str = dt.strftime('%H:%M:%S, %d/%m/%Y')
+                except Exception:
+                    # leave raw string escaped
+                    pass
 
             row_html = (
                 '<div class="row-box">'
                 f'<div class="col-team" title="{_html.escape(str(team_name))}">{_html.escape(str(team_name))}</div>'
-                f'<div class="col-first" title="{_html.escape(str(first_raw))}">{first}</div>'
-                f'<div class="col-second" title="{_html.escape(str(second_raw))}">{second}</div>'
-                f'<div class="col-reserve" title="{_html.escape(str(reserve_raw))}">{reserve}</div>'
+                f'<div class="col-first" title="{_html.escape(str(first_raw))}">{first_display}</div>'
+                f'<div class="col-second" title="{_html.escape(str(second_raw))}">{second_display}</div>'
+                f'<div class="col-reserve" title="{_html.escape(str(reserve_raw))}">{reserve_display}</div>'
                 f'<div class="col-date">{_html.escape(date_str)}</div>'
                 '</div>'
             )
@@ -374,10 +405,20 @@ def callup_screen(user):
 
         # --- display the calls table under the button ---
         team_map = fetch_team_map()
+        # determine previous race's limit (the latest race with status False before the current True one)
+        prev_limit_iso = None
+        try:
+            prev_candidates = [x for x in champ if x.get('number') < next_race.get('number') and x.get('status') is False]
+            if prev_candidates:
+                prev_race = max(prev_candidates, key=lambda z: z.get('number', 0))
+                prev_limit_iso = prev_race.get('limit')
+        except Exception:
+            prev_limit_iso = None
+
         if "f1" in callup_key:
-            display_calls_table("calls_f1", team_map, caption="Call-ups | F1")
+            display_calls_table("calls_f1", team_map, caption="Call-ups | F1", prev_limit_iso=prev_limit_iso)
         if "mgp" in callup_key:
-            display_calls_table("calls_mgp", team_map, caption="Call ups | MotoGP")
+            display_calls_table("calls_mgp", team_map, caption="Call ups | MotoGP", prev_limit_iso=prev_limit_iso)
 
     display_race_section("F1", "F1", "F1", "f1")
 
@@ -392,6 +433,7 @@ def callup_screen(user):
     display_race_section("MotoGP", "MGP", "MotoGP", "mgp")
 
     # -------------------------------------------------------------------------------------------
+
 
 
 
