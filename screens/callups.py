@@ -76,19 +76,22 @@ def callup_screen(user):
         import html as _html
         from datetime import datetime
 
-        # CSS copied/adapted from your racers_screen styling
+        # CSS adapted from your racers_screen styling; give Team more space and ensure names have same font size
         st.markdown(
             """
         <style>
           .racers-container { font-family: sans-serif; color: #fff; }
           .header-row { display: flex; gap: 12px; padding: 10px 16px; font-weight: 700; background: #000; color: #fff; border-radius: 10px; align-items:center; }
-          .row-box { display: flex; gap: 16px; padding: 14px 20px; align-items: center; border-radius: 12px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 56px; }
-          .row-box .col-team { flex: 4; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .row-box { display: flex; gap: 16px; padding: 12px 18px; align-items: center; border-radius: 12px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 56px; }
+          .row-box .col-team { flex: 6; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
           .row-box .col-first { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
           .row-box .col-second { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
           .row-box .col-reserve { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
           .row-box .col-date { flex: 1; min-width: 140px; text-align: right; color: #fff; font-weight: 600; }
           .header-row .h-col { padding: 0 8px; }
+          /* ensure name parts have same font size */
+          .name-first { display:block; font-size:14px; line-height:1.05; }
+          .name-last { display:block; font-size:14px; line-height:1.05; opacity:0.95; }
         </style>
             """,
             unsafe_allow_html=True,
@@ -104,7 +107,7 @@ def callup_screen(user):
         header_html = (
             """
             <div class="header-row">
-              <div class="h-col" style="flex:4">Team</div>
+              <div class="h-col" style="flex:6">Team</div>
               <div class="h-col" style="flex:2">First Driver</div>
               <div class="h-col" style="flex:2">Second Driver</div>
               <div class="h-col" style="flex:2">Reserve</div>
@@ -115,7 +118,7 @@ def callup_screen(user):
         st.markdown(header_html, unsafe_allow_html=True)
 
         def format_name_for_display(name_raw):
-            # Split name into parts; show first name then newline then last name(s)
+            # Split name into parts; show first name then newline then last name(s) with same font size
             if not name_raw:
                 return ""
             parts = str(name_raw).strip().split()
@@ -123,8 +126,8 @@ def callup_screen(user):
                 return _html.escape(parts[0])
             first = _html.escape(parts[0])
             last = _html.escape(" ".join(parts[1:]))
-            # use a <div> with line-break for visual separation
-            return f"{first}<br><small style='opacity:0.9'>{last}</small>"
+            # use two spans with the same font-size classes
+            return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
 
         for r in calls:
             # Resolve team name from team_map - support team being an object or a raw key
@@ -372,9 +375,9 @@ def callup_screen(user):
         # --- display the calls table under the button ---
         team_map = fetch_team_map()
         if "f1" in callup_key:
-            display_calls_table("calls_f1", team_map, caption="Tabella calls_f1")
+            display_calls_table("calls_f1", team_map, caption="Call-ups | F1")
         if "mgp" in callup_key:
-            display_calls_table("calls_mgp", team_map, caption="Tabella calls_mgp")
+            display_calls_table("calls_mgp", team_map, caption="Call ups | MotoGP")
 
     display_race_section("F1", "F1", "F1", "f1")
 
@@ -389,6 +392,7 @@ def callup_screen(user):
     display_race_section("MotoGP", "MGP", "MotoGP", "mgp")
 
     # -------------------------------------------------------------------------------------------
+
 
 
 
