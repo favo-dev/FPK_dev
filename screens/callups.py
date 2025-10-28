@@ -83,68 +83,7 @@ def callup_screen(user):
           .racers-container { font-family: sans-serif; color: #fff; }
           .header-row { display: flex; gap: 12px; padding: 10px 16px; font-weight: 700; background: #000; color: #fff; border-radius: 10px; align-items:center; }
           .row-box { display: flex; gap: 16px; padding: 14px 20px; align-items: center; border-radius: 12px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 56px; }
-          .row-box .col-team { flex: 4; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .row-box .col-first { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .row-box .col-second { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .row-box .col-reserve { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .row-box .col-date { flex: 1; min-width: 140px; text-align: right; color: #fff; font-weight: 600; }
-          .header-row .h-col { padding: 0 8px; }
-        </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown('<div class="racers-container">', unsafe_allow_html=True)
-
-        # Header
-        header_html = (
-            '<div class="header-row'>""" +
-            """'<div class="h-col" style="flex:4">Team</div>'
-            '<div class="h-col" style="flex:2">First Driver</div>'
-            '<div class="h-col" style="flex:2">Second Driver</div>'
-            '<div class="h-col" style="flex:2">Reserve</div>'
-            '<div class="h-col" style="flex:1; text-align:right; min-width:140px">Date</div>'
-            '</div>'
-        )
-        st.markdown(header_html, unsafe_allow_html=True)
-
-        for r in calls:
-            # Resolve team name from team_map - support team being an object or a raw key
-            team_id = r.get("team")
-            if isinstance(team_id, dict):
-                team_name = team_id.get("name") or team_id.get("Name") or str(team_id)
-            else:
-                team_name = team_map.get(team_id, team_id)
-
-            first = _html.escape(str(r.get("first") or ""))
-            second = _html.escape(str(r.get("second") or ""))
-            reserve = _html.escape(str(r.get("reserve") or ""))
-
-            when_raw = r.get("when") or r.get("When") or ""
-            date_str = _html.escape(str(when_raw))
-            try:
-                dt = datetime.fromisoformat(str(when_raw))
-                # If naive, leave as-is; you may want to convert timezone if needed
-                date_str = dt.strftime('%H:%M:%S, %d/%m/%Y')
-            except Exception:
-                # leave raw string escaped
-                pass
-
-            row_html = (
-                '<div class="row-box">'
-                f'<div class="col-team" title="{_html.escape(str(team_name))}">{_html.escape(str(team_name))}</div>'
-                f'<div class="col-first" title="{first}">{first}</div>'
-                f'<div class="col-second" title="{second}">{second}</div>'
-                f'<div class="col-reserve" title="{reserve}">{reserve}</div>'
-                f'<div class="col-date">{_html.escape(date_str)}</div>'
-                '</div>'
-            )
-
-            st.markdown(row_html, unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    def display_race_section(champ_name, champ_code, user_key, callup_key):
+          .row-box .col-team { flex: 4; font-weight: 700; color: #fff; overflow: hidden; text-ove(champ_name, champ_code, user_key, callup_key):
         st.subheader(champ_name)
 
 
@@ -369,8 +308,6 @@ def callup_screen(user):
 
     # -------------------------------------------------------------------------------------------
 
-
-    # -------------------------------------------------------------------------------------------
 
 
     st.markdown("<br><br>", unsafe_allow_html=True)
