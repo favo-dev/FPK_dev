@@ -1,3 +1,4 @@
+import ast
 import html as _html
 from supabase import create_client
 import streamlit as st
@@ -111,14 +112,38 @@ def callup_screen(user):
         )
         st.markdown(header_html, unsafe_allow_html=True)
 
-        # helper name formatter
-        def format_name_for_display(name_raw):
-            if not name_raw:
+        # helper name formatter (cleans brackets/quotes and formats First / Last)
+        def clean_raw_name(n):
+            if n is None:
                 return ""
-            parts = str(name_raw).strip().split()
+            s = str(n).strip()
+            # if looks like a Python list string, try to literal_eval; otherwise strip outer brackets and quotes
+            if s.startswith("[") and s.endswith("]"):
+                # attempt to extract single element if someone stored a whole list into a field by mistake
+                try:
+                    parsed = ast.literal_eval(s)
+                    if isinstance(parsed, (list, tuple)) and len(parsed) == 1:
+                        s = str(parsed[0]).strip()
+                    else:
+                        # if it's multiple elements, join them with comma (fallback) but we prefer to leave original cleaned
+                        s = ", ".join([str(x).strip() for x in parsed]) if isinstance(parsed, (list, tuple)) else s
+                except Exception:
+                    s = s[1:-1].strip()
+            # remove surrounding quotes if present
+            if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+                s = s[1:-1].strip()
+            # final cleanup of stray brackets/quotes
+            s = s.strip().strip("[]").strip().strip('\'"')
+            return s
+
+        def format_name_for_display(name_raw):
+            nm = clean_raw_name(name_raw)
+            if not nm:
+                return ""
+            parts = nm.split()
             if len(parts) == 1:
                 return _html.escape(parts[0])
-            lower = str(name_raw).strip().lower()
+            lower = nm.lower()
             if lower == 'fabio di giannantonio':
                 first = _html.escape(parts[0])
                 last = _html.escape(' '.join(parts[1:]))
@@ -146,7 +171,6 @@ def callup_screen(user):
 
             first_raw = r.get("first") or ""
             second_raw = r.get("second") or ""
-            # choose first non-empty reserve field to display in reserve column (backwards compat)
             reserve_raw = r.get("reserve") or r.get("reserve_two") or r.get("reserve_three") or r.get("reserve_four") or ""
 
             first_display = format_name_for_display(first_raw)
@@ -254,12 +278,29 @@ def callup_screen(user):
         for key in candidates:
             val = row.get(key)
             if val:
+                # If already a list, normalize directly
                 if isinstance(val, list):
                     return normalize_riders(val)
-                elif isinstance(val, str):
-                    parts = [p.strip() for p in val.replace(";", ",").split(",") if p.strip()]
-                    if parts:
-                        return normalize_riders(parts)
+                # If string, try to parse as Python literal (e.g. "['Name1','Name2']") safely
+                if isinstance(val, str):
+                    s = val.strip()
+                    # try literal_eval (handles Python-list-like strings)
+                    try:
+                        parsed = ast.literal_eval(s)
+                        if isinstance(parsed, (list, tuple)):
+                            parts = [str(x).strip() for x in parsed if x is not None and str(x).strip()]
+                            if parts:
+                                return normalize_riders(parts)
+                    except Exception:
+                        # fallback: remove outer brackets and quotes then split on commas
+                        if s.startswith("[") and s.endswith("]"):
+                            s_inner = s[1:-1]
+                        else:
+                            s_inner = s
+                        # split and strip surrounding quotes/spaces
+                        parts = [p.strip().strip("'\"") for p in s_inner.split(",") if p.strip()]
+                        if parts:
+                            return normalize_riders(parts)
         return []
 
     # ---------------- section renderer ----------------
@@ -441,7 +482,6 @@ def callup_screen(user):
                 </div>
             """, unsafe_allow_html=True)
 
-
         # prepare select keys and defaults
         active_keys = [f"{calls_new_table}_active_{i}" for i in range(A)]
         reserve_keys = [f"{calls_new_table}_reserve_{i}" for i in range(R)]
@@ -449,14 +489,21 @@ def callup_screen(user):
         for i, k in enumerate(active_keys):
             existing_val = None
             if calls_row:
-                existing_val = calls_row.get(["first","second","third","fourth"][i])
+                # safe access
+                try:
+                    existing_val = calls_row.get(["first","second","third","fourth"][i])
+                except Exception:
+                    existing_val = None
             default_val = existing_val if existing_val else (drivers[i] if i < len(drivers) else "")
             st.session_state.setdefault(k, default_val)
 
         for i, k in enumerate(reserve_keys):
             existing_val = None
             if calls_row:
-                existing_val = calls_row.get(["reserve","reserve_two","reserve_three","reserve_four"][i])
+                try:
+                    existing_val = calls_row.get(["reserve","reserve_two","reserve_three","reserve_four"][i])
+                except Exception:
+                    existing_val = None
             default_val = existing_val if existing_val else (drivers[A + i] if (A + i) < len(drivers) else "")
             st.session_state.setdefault(k, default_val)
 
