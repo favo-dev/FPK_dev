@@ -83,7 +83,89 @@ def callup_screen(user):
           .racers-container { font-family: sans-serif; color: #fff; }
           .header-row { display: flex; gap: 12px; padding: 10px 16px; font-weight: 700; background: #000; color: #fff; border-radius: 10px; align-items:center; }
           .row-box { display: flex; gap: 16px; padding: 14px 20px; align-items: center; border-radius: 12px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 56px; }
-          .row-box .col-team { flex: 4; font-weight: 700; color: #fff; overflow: hidden; text-ove(champ_name, champ_code, user_key, callup_key):
+          .row-box .col-team { flex: 4; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .row-box .col-first { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
+          .row-box .col-second { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
+          .row-box .col-reserve { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
+          .row-box .col-date { flex: 1; min-width: 140px; text-align: right; color: #fff; font-weight: 600; }
+          .header-row .h-col { padding: 0 8px; }
+        </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="racers-container">', unsafe_allow_html=True)
+
+        # Title (caption)
+        if caption:
+            st.markdown(f"<h4 style='margin:6px 0 10px 0;color:#fff;font-weight:700'>{_html.escape(caption)}</h4>", unsafe_allow_html=True)
+
+        # Header
+        header_html = (
+            """
+            <div class="header-row">
+              <div class="h-col" style="flex:4">Team</div>
+              <div class="h-col" style="flex:2">First Driver</div>
+              <div class="h-col" style="flex:2">Second Driver</div>
+              <div class="h-col" style="flex:2">Reserve</div>
+              <div class="h-col" style="flex:1; text-align:right; min-width:140px">Date</div>
+            </div>
+            """
+        )
+        st.markdown(header_html, unsafe_allow_html=True)
+
+        def format_name_for_display(name_raw):
+            # Split name into parts; show first name then newline then last name(s)
+            if not name_raw:
+                return ""
+            parts = str(name_raw).strip().split()
+            if len(parts) == 1:
+                return _html.escape(parts[0])
+            first = _html.escape(parts[0])
+            last = _html.escape(" ".join(parts[1:]))
+            # use a <div> with line-break for visual separation
+            return f"{first}<br><small style='opacity:0.9'>{last}</small>"
+
+        for r in calls:
+            # Resolve team name from team_map - support team being an object or a raw key
+            team_id = r.get("team")
+            if isinstance(team_id, dict):
+                team_name = team_id.get("name") or team_id.get("Name") or str(team_id)
+            else:
+                team_name = team_map.get(team_id, team_id)
+
+            first_raw = r.get("first") or ""
+            second_raw = r.get("second") or ""
+            reserve_raw = r.get("reserve") or ""
+
+            first = format_name_for_display(first_raw)
+            second = format_name_for_display(second_raw)
+            reserve = format_name_for_display(reserve_raw)
+
+            when_raw = r.get("when") or r.get("When") or ""
+            date_str = _html.escape(str(when_raw))
+            try:
+                dt = datetime.fromisoformat(str(when_raw))
+                date_str = dt.strftime('%H:%M:%S, %d/%m/%Y')
+            except Exception:
+                # leave raw string escaped
+                pass
+
+            row_html = (
+                '<div class="row-box">'
+                f'<div class="col-team" title="{_html.escape(str(team_name))}">{_html.escape(str(team_name))}</div>'
+                f'<div class="col-first" title="{_html.escape(str(first_raw))}">{first}</div>'
+                f'<div class="col-second" title="{_html.escape(str(second_raw))}">{second}</div>'
+                f'<div class="col-reserve" title="{_html.escape(str(reserve_raw))}">{reserve}</div>'
+                f'<div class="col-date">{_html.escape(date_str)}</div>'
+                '</div>'
+            )
+
+            st.markdown(row_html, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    def display_race_section(champ_name, champ_code, user_key, callup_key):
         st.subheader(champ_name)
 
 
@@ -307,6 +389,7 @@ def callup_screen(user):
     display_race_section("MotoGP", "MGP", "MotoGP", "mgp")
 
     # -------------------------------------------------------------------------------------------
+
 
 
 
