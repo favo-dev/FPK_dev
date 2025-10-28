@@ -441,8 +441,6 @@ def callup_screen(user):
                 </div>
             """, unsafe_allow_html=True)
 
-        # show team/slot info
-        st.markdown(f"**Team size:** {N} — **Active slots:** {A} — **Reserves:** {R}")
 
         # prepare select keys and defaults
         active_keys = [f"{calls_new_table}_active_{i}" for i in range(A)]
