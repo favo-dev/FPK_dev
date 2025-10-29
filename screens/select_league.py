@@ -129,7 +129,7 @@ def league_screen(user):
     st.title("League hub")
     st.subheader("Your leagues")
 
-    player_uuid = user.get("UUID")
+    player_uuid = user["UUID"]
     if not player_uuid:
         st.warning("UUID not found for this user.")
         return
