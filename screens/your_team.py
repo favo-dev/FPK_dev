@@ -180,7 +180,7 @@ def your_team_screen(user):
 
             # imposta lo screen e forza il rerun in modo affidabile
             st.session_state["screen"] = "leagues"
-            st.experimental_rerun()
+            st.rerun()
     else:
         # placeholder quando non applicabile
         col3.markdown("<div style='opacity:0.6; padding-top:6px; text-align:center'>Change league</div>", unsafe_allow_html=True)
