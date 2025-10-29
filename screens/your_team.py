@@ -98,7 +98,7 @@ def your_team_screen(user):
 
     # If we changed session_state and app already initialized, rerun once so UI rebuilds
     if changed and st.session_state.get("initialized", False):
-        st.experimental_rerun()
+        st.rerun()
     # --- END ensure ---
 
     # If still no user row, inform user and return
@@ -110,7 +110,7 @@ def your_team_screen(user):
             st.session_state.screen_history = st.session_state.get("screen_history", []) + [st.session_state.get("screen", "team")]
             st.session_state["selected_league"] = None
             st.session_state["screen"] = "leagues"
-            st.experimental_rerun()
+            st.rerun()
         return
 
     # ---------- UI Top band ----------
@@ -253,7 +253,7 @@ def your_team_screen(user):
             st.session_state["nav_selection"] = None
 
             st.session_state["screen"] = "leagues"
-            st.experimental_rerun()
+            st.rerun()
     else:
         col3.markdown("<div style='opacity:0.6; padding-top:6px; text-align:center'>Change league</div>", unsafe_allow_html=True)
 
