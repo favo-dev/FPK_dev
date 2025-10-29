@@ -49,7 +49,19 @@ def home_screen(user):
         "roll": "Roll of Honor"
     }
     nav_to_screen = {v: k for k, v in screen_to_nav.items()}
+    options = list(screen_to_nav.values())
 
+    # Se la nav_selection corrente non è fra le opzioni disponibili (es. è "Leagues"),
+    # ripristiniamo a un valore valido (prima opzione) per evitare ValueError.
+    if st.session_state.get("nav_selection") not in options:
+        st.session_state["nav_selection"] = options[0]
+
+    selection = st.sidebar.selectbox(
+        "Navigate",
+        options,
+        index=options.index(st.session_state.get("nav_selection"))
+    )
+    
     if "nav_selection" not in st.session_state:
         st.session_state.nav_selection = screen_to_nav.get(st.session_state.screen, "Your team")
 
