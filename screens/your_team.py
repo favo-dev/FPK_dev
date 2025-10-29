@@ -1,3 +1,24 @@
+import ast
+import re
+import json
+import html as _html
+from supabase import create_client
+import streamlit as st
+from logic.functions import safe_rgb_to_hex, hex_to_rgb, normalize_riders, update_user_field, _parse_display_value, color_to_rgb
+from screens.show_racers import show_racer_screen
+
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+SUPABASE_SERVICE_ROLE_KEY = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+# --------------------- TEAM SCREEN --------------------------------------------------------
+
 def your_team_screen(user):
     st.header("Your Team")
 
