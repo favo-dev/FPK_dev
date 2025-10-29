@@ -165,18 +165,26 @@ def your_team_screen(user):
             st.rerun()
 
     # Change league: visibile SOLO se l'utente ha più di una squadra
+        # Change league: visibile SOLO se l'utente ha più di una squadra
     if has_multiple_teams:
         if col3.button("Change league", key="change_league"):
-            # salva la schermata corrente nella cronologia e vai alla schermata di selezione leagues
+            # salva la schermata corrente nella cronologia
             hist = st.session_state.get("screen_history", [])
             hist.append(st.session_state.get("screen", "team"))
             st.session_state["screen_history"] = hist
-            # porta l'utente alla schermata di selezione league (nel tuo progetto la schermata è 'leagues')
-            st.session_state.screen = "leagues"
-            st.rerun()
+
+            # pulisci/aggiorna alcune chiavi utili alla schermata di selezione league
+            st.session_state["selected_league"] = None      # vogliamo mostrare la lista di league dell'utente
+            st.session_state["go"] = False                  # evita che select_league faccia redirect non voluti
+            st.session_state["nav_selection"] = "Leagues"   # opzionale: aggiorna nav se la usi altrove
+
+            # imposta lo screen e forza il rerun in modo affidabile
+            st.session_state["screen"] = "leagues"
+            st.experimental_rerun()
     else:
-        # mostra un pulsante disabilitato/placeholder (meglio che niente), oppure un testo esplicativo
+        # placeholder quando non applicabile
         col3.markdown("<div style='opacity:0.6; padding-top:6px; text-align:center'>Change league</div>", unsafe_allow_html=True)
+
 
     # Exit
     if col4.button("Exit", key="exit_button"):
