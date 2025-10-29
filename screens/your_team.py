@@ -277,6 +277,7 @@ def your_team_screen(user):
 
             # imposta lo screen e forza il rerun in modo affidabile
             st.session_state["screen"] = "leagues"
+            del st.session_state["initialized"]
             st.rerun()
     else:
         # placeholder quando non applicabile
