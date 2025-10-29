@@ -38,7 +38,7 @@ def home_screen(user):
         st.session_state.initialized = True
         st.session_state.screen = "team"
         st.session_state.screen_history = []
-        st.session_state.nav_selection = "Your team"  
+        st.session_state.nav_selection = "Your team"
 
     screen_to_nav = {
         "team": "Your team",
@@ -49,34 +49,34 @@ def home_screen(user):
         "roll": "Roll of Honor"
     }
     nav_to_screen = {v: k for k, v in screen_to_nav.items()}
+
+    # Options list
     options = list(screen_to_nav.values())
 
-    # Se la nav_selection corrente non è fra le opzioni disponibili (es. è "Leagues"),
-    # ripristiniamo a un valore valido (prima opzione) per evitare ValueError.
-    if st.session_state.get("nav_selection") not in options:
+    # Ensure nav_selection is valid; if not, set to first option (safe default)
+    current_nav = st.session_state.get("nav_selection")
+    if current_nav not in options:
+        # fallback: pick sensible default
         st.session_state["nav_selection"] = options[0]
+        current_nav = options[0]
 
+    # IMPORTANT: provide a unique key to avoid StreamlitDuplicateElementId
     selection = st.sidebar.selectbox(
         "Navigate",
         options,
-        index=options.index(st.session_state.get("nav_selection"))
+        index=options.index(current_nav),
+        key="main_nav_select"   # <-- unique key added
     )
-    
-    if "nav_selection" not in st.session_state:
-        st.session_state.nav_selection = screen_to_nav.get(st.session_state.screen, "Your team")
 
-    selection = st.sidebar.selectbox(
-        "Navigate",
-        list(screen_to_nav.values()),
-        index=list(screen_to_nav.values()).index(st.session_state.nav_selection)
-    )
     logo_url = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=..."
     st.sidebar.image(logo_url, width='stretch')
+
     if selection != st.session_state.nav_selection:
         st.session_state.nav_selection = selection
         st.session_state.screen = nav_to_screen[selection]
         st.rerun()
 
+    # routing
     if st.session_state.screen == "team":
         your_team_screen(user)
     elif st.session_state.screen == "callups":
@@ -101,6 +101,7 @@ def home_screen(user):
         confirm_exit_screen()
     elif st.session_state.screen == "racer_detail":
         show_racer_screen()
+
 
 
 # --------------------- EXIT SCREEN ----------------------------------------------------
