@@ -21,6 +21,30 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 def your_team_screen(user):
     st.header("Your Team")
+        # >>> Inizio patch: ricarica la riga "teams" per l'UUID + selected_league se presente
+    try:
+        # preferisci la league selezionata in session_state (se impostata), altrimenti la league dell'oggetto user passato
+        sel_league = st.session_state.get("selected_league") or user.get("league") if user else None
+        player_uuid = user.get("UUID") if user else st.session_state.get("user", {}).get("UUID")
+
+        if player_uuid and sel_league:
+            # prova prima con colonna "UUID" (ma controlla anche "uuid" come fallback)
+            resp = supabase.from_("teams").select("*").eq("UUID", player_uuid).eq("league", sel_league).limit(1).execute()
+            rows = resp.data or []
+            if not rows:
+                # fallback lowercase field
+                resp = supabase.from_("teams").select("*").eq("uuid", player_uuid).eq("league", sel_league).limit(1).execute()
+                rows = resp.data or []
+
+            if rows:
+                fresh = rows[0]
+                # aggiorna sia la variabile locale 'user' che lo session_state per coerenza
+                user = fresh
+                st.session_state["user"] = fresh
+    except Exception:
+        # se la fetch fallisce, non interrompiamo lo schermo: mostriamo comunque l'UI (che poi mostrerà errori se manca user)
+        pass
+    # <<< Fine patch
 
     st.markdown(
         f"<div style='width:100%;max-width:900px;height:10px;background:linear-gradient(90deg,{safe_rgb_to_hex(user.get('main color','255,0,0'))},{safe_rgb_to_hex(user.get('second color','0,0,255'))});border-radius:12px;box-shadow:0 3px 8px rgba(0,0,0,.15);margin-bottom:1.5rem'></div>",
