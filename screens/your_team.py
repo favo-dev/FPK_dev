@@ -176,7 +176,7 @@ def your_team_screen(user):
             # pulisci/aggiorna alcune chiavi utili alla schermata di selezione league
             st.session_state["selected_league"] = None      # vogliamo mostrare la lista di league dell'utente
             st.session_state["go"] = False                  # evita che select_league faccia redirect non voluti
-            st.session_state["nav_selection"] = "Leagues"   # opzionale: aggiorna nav se la usi altrove
+            st.session_state["nav_selection"] = None   # opzionale: aggiorna nav se la usi altrove
 
             # imposta lo screen e forza il rerun in modo affidabile
             st.session_state["screen"] = "leagues"
