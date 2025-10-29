@@ -205,7 +205,7 @@ def _ensure_session_user_row():
 
 if st.session_state.logged_in:
     league_screen(st.session_state.user)
-     _ensure_session_user_row()
+    _ensure_session_user_row()
 else:
     st.title("Login / Registration")
     choice = st.radio("Select:", ["Login", "Registration"]) 
@@ -299,6 +299,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
