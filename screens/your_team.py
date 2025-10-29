@@ -21,31 +21,104 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 def your_team_screen(user):
     st.header("Your Team")
-        # >>> Inizio patch: ricarica la riga "teams" per l'UUID + selected_league se presente
+        # --- BEGIN: ensure selected_league and st.session_state.user are fresh for this UUID ---
     try:
-        # preferisci la league selezionata in session_state (se impostata), altrimenti la league dell'oggetto user passato
-        sel_league = st.session_state.get("selected_league") or user.get("league") if user else None
-        player_uuid = user.get("UUID") if user else st.session_state.get("user", {}).get("UUID")
+        player_uuid = None
+        # prefer st.session_state.user if available (coerente con il resto dell'app)
+        if isinstance(st.session_state.get("user"), dict) and st.session_state["user"].get("UUID"):
+            player_uuid = st.session_state["user"].get("UUID")
+        elif isinstance(user, dict) and user.get("UUID"):
+            player_uuid = user.get("UUID")
 
-        if player_uuid and sel_league:
-            # prova prima con colonna "UUID" (ma controlla anche "uuid" come fallback)
-            resp = supabase.from_("teams").select("*").eq("UUID", player_uuid).eq("league", sel_league).limit(1).execute()
-            rows = resp.data or []
-            if not rows:
-                # fallback lowercase field
-                resp = supabase.from_("teams").select("*").eq("uuid", player_uuid).eq("league", sel_league).limit(1).execute()
+        sel_league = st.session_state.get("selected_league") or (user.get("league") if isinstance(user, dict) else None)
+
+        # Helper: try to load team row for given uuid+league (tries both 'UUID' and 'uuid' column names)
+        def _fetch_team_row_for(uuid_val, league_val):
+            if not uuid_val or not league_val:
+                return None
+            try:
+                resp = supabase.from_("teams").select("*").eq("UUID", uuid_val).eq("league", league_val).limit(1).execute()
                 rows = resp.data or []
+                if rows:
+                    return rows[0]
+            except Exception:
+                pass
+            try:
+                resp = supabase.from_("teams").select("*").eq("uuid", uuid_val).eq("league", league_val).limit(1).execute()
+                rows = resp.data or []
+                if rows:
+                    return rows[0]
+            except Exception:
+                pass
+            return None
 
-            if rows:
-                fresh = rows[0]
-                # aggiorna sia la variabile locale 'user' che lo session_state per coerenza
-                user = fresh
-                st.session_state["user"] = fresh
+        changed = False  # whether we changed session_state and need a rerun
+
+        # If we have a selected league, try to fetch that exact team row
+        if player_uuid and sel_league:
+            team_row = _fetch_team_row_for(player_uuid, sel_league)
+            if team_row:
+                # ensure session_state.user is the freshly-read row
+                if st.session_state.get("user") != team_row:
+                    st.session_state["user"] = team_row
+                    user = team_row
+                    changed = True
+            else:
+                # selected_league set but no team row found: try to find any team for this uuid and pick that
+                try:
+                    fallback_rows = supabase.from_("teams").select("*").or_(f"UUID.eq.{player_uuid},uuid.eq.{player_uuid}").limit(10).execute().data or []
+                except Exception:
+                    fallback_rows = []
+                if fallback_rows:
+                    first = fallback_rows[0]
+                    new_league = first.get("league")
+                    st.session_state["selected_league"] = new_league
+                    st.session_state["user"] = first
+                    user = first
+                    changed = True
+                else:
+                    # nothing found: clear session_state.user to indicate no team exists for this UUID+league
+                    if st.session_state.get("user") is not None:
+                        st.session_state["user"] = None
+                        changed = True
+
+        else:
+            # no sel_league yet: try to resolve it from passed user or DB
+            if player_uuid:
+                # if 'user' argument has a league, prefer it
+                if isinstance(user, dict) and user.get("league"):
+                    st.session_state["selected_league"] = user.get("league")
+                    st.session_state["user"] = user
+                    changed = True
+                else:
+                    # try to fetch any team rows for this UUID and take the first one
+                    try:
+                        any_rows = supabase.from_("teams").select("*").or_(f"UUID.eq.{player_uuid},uuid.eq.{player_uuid}").limit(10).execute().data or []
+                    except Exception:
+                        any_rows = []
+                    if any_rows:
+                        first = any_rows[0]
+                        st.session_state["selected_league"] = first.get("league")
+                        st.session_state["user"] = first
+                        user = first
+                        changed = True
+                    else:
+                        # nothing found; leave as-is (user remains None)
+                        pass
+
+        # If we made a change to session_state that affects what should be displayed, rerun once so the UI rebuilds with fresh values.
+        # We guard the rerun to avoid creating a rerun loop.
+        if changed:
+            # small safeguard: don't rerun during initial app bootstrap where reruns can loop — only rerun if we're already past init
+            # (if you want unconditional rerun remove the check)
+            if st.session_state.get("initialized", False):
+                st.experimental_rerun()
     except Exception:
-        # se la fetch fallisce, non interrompiamo lo schermo: mostriamo comunque l'UI (che poi mostrerà errori se manca user)
+        # swallow any exception in this sync logic — we don't want to crash the UI
         pass
-    # <<< Fine patch
+    # --- END: ensure selected_league and st.session_state.user are fresh ---
 
+    
     st.markdown(
         f"<div style='width:100%;max-width:900px;height:10px;background:linear-gradient(90deg,{safe_rgb_to_hex(user.get('main color','255,0,0'))},{safe_rgb_to_hex(user.get('second color','0,0,255'))});border-radius:12px;box-shadow:0 3px 8px rgba(0,0,0,.15);margin-bottom:1.5rem'></div>",
         unsafe_allow_html=True,
