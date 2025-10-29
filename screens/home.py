@@ -84,7 +84,7 @@ def home_screen(user):
     if logo_url:
         try:
             # use_column_width deprecated in some versions; use width param if needed
-            st.sidebar.image(logo_url, use_column_width=True)
+            st.sidebar.image(logo_url, use_container_width=True)
         except Exception:
             # ignore image loading errors
             pass
