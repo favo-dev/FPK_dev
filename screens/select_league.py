@@ -123,7 +123,7 @@ def build_team(user, league_id, team_name, main_color_rgb, second_color_rgb, tea
 def league_screen(user):
     # se il flag go è attivo, mostra la home e stoppa il resto
     if st.session_state.go:
-        your_team_screen(user)
+        home_screen(user)
         st.stop()
 
     st.title("League hub")
