@@ -1,3 +1,4 @@
+# screens/your_team.py
 import ast
 import re
 import json
@@ -8,23 +9,20 @@ from logic.functions import safe_rgb_to_hex, hex_to_rgb, normalize_riders, updat
 from screens.show_racers import show_racer_screen
 
 # -------------------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------------------
-
-# --------------------- SUPABASE CLIENT --------------------------------------
+# SUPABASE CLIENT
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-SUPABASE_SERVICE_ROLE_KEY = st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
+SUPABASE_SERVICE_ROLE_KEY = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-# --------------------- TEAM SCREEN --------------------------------------------------------
 
 def your_team_screen(user):
     st.header("Your Team")
-        # --- BEGIN: ensure selected_league and st.session_state.user are fresh for this UUID ---
+
+    # --- BEGIN: ensure selected_league and st.session_state.user are fresh ---
     try:
         player_uuid = None
-        # prefer st.session_state.user if available (coerente con il resto dell'app)
+        # prefer st.session_state.user if available
         if isinstance(st.session_state.get("user"), dict) and st.session_state["user"].get("UUID"):
             player_uuid = st.session_state["user"].get("UUID")
         elif isinstance(user, dict) and user.get("UUID"):
@@ -32,7 +30,6 @@ def your_team_screen(user):
 
         sel_league = st.session_state.get("selected_league") or (user.get("league") if isinstance(user, dict) else None)
 
-        # Helper: try to load team row for given uuid+league (tries both 'UUID' and 'uuid' column names)
         def _fetch_team_row_for(uuid_val, league_val):
             if not uuid_val or not league_val:
                 return None
@@ -52,19 +49,17 @@ def your_team_screen(user):
                 pass
             return None
 
-        changed = False  # whether we changed session_state and need a rerun
+        changed = False
 
-        # If we have a selected league, try to fetch that exact team row
         if player_uuid and sel_league:
             team_row = _fetch_team_row_for(player_uuid, sel_league)
             if team_row:
-                # ensure session_state.user is the freshly-read row
                 if st.session_state.get("user") != team_row:
                     st.session_state["user"] = team_row
                     user = team_row
                     changed = True
             else:
-                # selected_league set but no team row found: try to find any team for this uuid and pick that
+                # try to find any team row for this uuid and pick the first as fallback
                 try:
                     fallback_rows = supabase.from_("teams").select("*").or_(f"UUID.eq.{player_uuid},uuid.eq.{player_uuid}").limit(10).execute().data or []
                 except Exception:
@@ -77,21 +72,17 @@ def your_team_screen(user):
                     user = first
                     changed = True
                 else:
-                    # nothing found: clear session_state.user to indicate no team exists for this UUID+league
                     if st.session_state.get("user") is not None:
                         st.session_state["user"] = None
                         changed = True
-
         else:
-            # no sel_league yet: try to resolve it from passed user or DB
+            # no selected league: try to resolve it from passed user or DB
             if player_uuid:
-                # if 'user' argument has a league, prefer it
                 if isinstance(user, dict) and user.get("league"):
                     st.session_state["selected_league"] = user.get("league")
                     st.session_state["user"] = user
                     changed = True
                 else:
-                    # try to fetch any team rows for this UUID and take the first one
                     try:
                         any_rows = supabase.from_("teams").select("*").or_(f"UUID.eq.{player_uuid},uuid.eq.{player_uuid}").limit(10).execute().data or []
                     except Exception:
@@ -102,23 +93,27 @@ def your_team_screen(user):
                         st.session_state["user"] = first
                         user = first
                         changed = True
-                    else:
-                        # nothing found; leave as-is (user remains None)
-                        pass
-
-        # If we made a change to session_state that affects what should be displayed, rerun once so the UI rebuilds with fresh values.
-        # We guard the rerun to avoid creating a rerun loop.
-        if changed:
-            # small safeguard: don't rerun during initial app bootstrap where reruns can loop — only rerun if we're already past init
-            # (if you want unconditional rerun remove the check)
-            if st.session_state.get("initialized", False):
-                st.experimental_rerun()
     except Exception:
-        # swallow any exception in this sync logic — we don't want to crash the UI
-        pass
-    # --- END: ensure selected_league and st.session_state.user are fresh ---
+        changed = False
 
-    
+    # If we changed session_state and app already initialized, rerun once so UI rebuilds
+    if changed and st.session_state.get("initialized", False):
+        st.experimental_rerun()
+    # --- END ensure ---
+
+    # If still no user row, inform user and return
+    if not isinstance(user, dict) or not user.get("UUID"):
+        st.warning("No team selected for this profile. Use 'Change league' or create/join a team.")
+        # provide the change league button to help
+        col_a, col_b = st.columns([1, 1])
+        if col_b.button("Change league", key="change_league_no_user"):
+            st.session_state.screen_history = st.session_state.get("screen_history", []) + [st.session_state.get("screen", "team")]
+            st.session_state["selected_league"] = None
+            st.session_state["screen"] = "leagues"
+            st.experimental_rerun()
+        return
+
+    # ---------- UI Top band ----------
     st.markdown(
         f"<div style='width:100%;max-width:900px;height:10px;background:linear-gradient(90deg,{safe_rgb_to_hex(user.get('main color','255,0,0'))},{safe_rgb_to_hex(user.get('second color','0,0,255'))});border-radius:12px;box-shadow:0 3px 8px rgba(0,0,0,.15);margin-bottom:1.5rem'></div>",
         unsafe_allow_html=True,
@@ -168,9 +163,13 @@ def your_team_screen(user):
     st.session_state.setdefault("selected_driver", None)
     st.session_state.setdefault("customizing", False)
 
-    # dati racer (restano per eventuali usi)
-    f1_data = supabase.from_("racers_f1_new").select("*").execute().data or []
-    mgp_data = supabase.from_("racers_mgp_new").select("*").execute().data or []
+    # fetch racers data if needed (kept for backward compatibility)
+    try:
+        f1_data = supabase.from_("racers_f1_new").select("*").execute().data or []
+        mgp_data = supabase.from_("racers_mgp_new").select("*").execute().data or []
+    except Exception:
+        f1_data = []
+        mgp_data = []
 
     st.subheader("Options")
 
@@ -200,53 +199,30 @@ def your_team_screen(user):
     </style>
     """, unsafe_allow_html=True)
 
-    # --- controllo: quante righe 'teams' ha questo user? (per abilitare "Change league")
+    # how many teams does this player have?
     user_uuid = user.get("UUID")
-    teams_rows_for_user = []
     teams_count = 0
-
-    if user_uuid:
-        # 1) prova veloce e parsimoniosa: richiedi il count usando la colonna 'UUID'
-        try:
+    try:
+        if user_uuid:
+            # try uppercase column
             resp = supabase.from_("teams").select("UUID", count="exact").eq("UUID", user_uuid).execute()
-            # supabase-python può restituire .count oppure (resp.data) con le righe
             if getattr(resp, "count", None) is not None:
                 teams_count = resp.count or 0
             else:
-                teams_rows_for_user = resp.data or []
-                teams_count = len(teams_rows_for_user)
-        except Exception:
-            teams_count = 0
-
-        # 2) se zero, riprova con 'uuid' minuscolo (molti schemi usano lowercase)
-        if teams_count == 0:
-            try:
-                resp = supabase.from_("teams").select("uuid", count="exact").eq("uuid", user_uuid).execute()
-                if getattr(resp, "count", None) is not None:
-                    teams_count = resp.count or 0
+                teams_count = len(resp.data or [])
+            # fallback lowercase if zero
+            if teams_count == 0:
+                resp2 = supabase.from_("teams").select("uuid", count="exact").eq("uuid", user_uuid).execute()
+                if getattr(resp2, "count", None) is not None:
+                    teams_count = resp2.count or 0
                 else:
-                    teams_rows_for_user = resp.data or []
-                    teams_count = len(teams_rows_for_user)
-            except Exception:
-                teams_count = teams_count
+                    teams_count = len(resp2.data or [])
+    except Exception:
+        teams_count = teams_count
 
-        # 3) fallback: scarica poche colonne e conta localmente controllando entrambi i nomi di campo
-        if teams_count == 0:
-            try:
-                all_rows = supabase.from_("teams").select("UUID,uuid,ID,league").limit(1000).execute().data or []
-                # conta righe in cui UUID o uuid corrisponde
-                matching = [r for r in all_rows if (r.get("UUID") == user_uuid or r.get("uuid") == user_uuid)]
-                teams_count = len(matching)
-                if teams_count:
-                    teams_rows_for_user = matching
-            except Exception:
-                teams_count = teams_count
-
-    # flag utilizzato per mostrare/nascondere il pulsante Change league
     has_multiple_teams = teams_count > 1
 
-
-    # Ora 4 colonne: Call-ups | Customize | Change league (condizionale) | Exit
+    # layout: 4 cols (Call-ups / Customize / Change league / Exit)
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
     if col1.button("Call-ups", key="btn_callups"):
         st.session_state.screen = "callups"
@@ -261,36 +237,33 @@ def your_team_screen(user):
             st.session_state.customizing = False
             st.rerun()
 
-    # Change league: visibile SOLO se l'utente ha più di una squadra
-        # Change league: visibile SOLO se l'utente ha più di una squadra
+    # Change league
     if has_multiple_teams:
         if col3.button("Change league", key="change_league"):
-            # salva la schermata corrente nella cronologia
+            # record history and navigate to leagues selection
             hist = st.session_state.get("screen_history", [])
             hist.append(st.session_state.get("screen", "team"))
             st.session_state["screen_history"] = hist
 
-            # pulisci/aggiorna alcune chiavi utili alla schermata di selezione league
-            st.session_state["selected_league"] = None      # vogliamo mostrare la lista di league dell'utente
-            st.session_state["go"] = False                  # evita che select_league faccia redirect non voluti
-            st.session_state["nav_selection"] = None   # opzionale: aggiorna nav se la usi altrove
+            # clear selected league so leagues screen shows choices
+            st.session_state["selected_league"] = None
+            st.session_state["user"] = None
+            st.session_state["go"] = False
+            # do not set nav_selection to a value unknown to the main nav
+            st.session_state["nav_selection"] = None
 
-            # imposta lo screen e forza il rerun in modo affidabile
             st.session_state["screen"] = "leagues"
-            st.rerun()
+            st.experimental_rerun()
     else:
-        # placeholder quando non applicabile
         col3.markdown("<div style='opacity:0.6; padding-top:6px; text-align:center'>Change league</div>", unsafe_allow_html=True)
 
-
-    # Exit
     if col4.button("Exit", key="exit_button"):
         st.session_state.screen = "confirm_exit"
         st.rerun()
 
     st.markdown("---")
 
-    # --- customization panel (se attivo) ---
+    # customization panel
     if st.session_state.customizing:
         st.markdown("### Customize your profile")
         st.markdown("<div style='border:2px solid #ddd;padding:2rem;border-radius:16px;max-width:700px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.05);margin-bottom:3rem'>", unsafe_allow_html=True)
@@ -308,8 +281,7 @@ def your_team_screen(user):
             st.success("Secondary color updated!")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- racers display ---
-
+    # racers display
     def morpher(name, prefix, idx):
         base = re.sub(r"\W+", "_", name).strip("_").lower() or f"r{idx}"
         return f"{prefix}_{base}_{idx}"
