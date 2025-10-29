@@ -112,6 +112,7 @@ def your_team_screen(user):
     except Exception:
         teams_rows_for_user = []
     teams_count = len(teams_rows_for_user)
+    st.write(teams_count)
     has_multiple_teams = teams_count > 1
 
     # Ora 4 colonne: Call-ups | Customize | Change league (condizionale) | Exit
