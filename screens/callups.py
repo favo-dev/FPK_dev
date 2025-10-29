@@ -59,163 +59,354 @@ def callup_screen(user):
             pass
         return {}
 
-    def display_calls_table(table_name, team_map, caption=None, prev_limit_iso=None):
-        """
-        Renders static styled list of rows from `table_name` (calls_f1 / calls_mgp).
-        If prev_limit_iso provided, rows with when < prev_limit show N/A (except Team).
-        Dates shown in Europe/Rome.
-        """
-        try:
-            calls = supabase.from_(table_name).select("*").execute().data or []
-        except Exception:
-            calls = []
-
-        if not calls:
-            st.info(f"Nessuna chiamata disponibile per {table_name}.")
-            return
-
-        # CSS
-        st.markdown(
+        def display_calls_table(table_name, team_map, caption=None, prev_limit_iso=None, league_id=None, champ_code=None):
             """
-        <style>
-          .racers-container { font-family: sans-serif; color: #fff; }
-          .header-row { display: flex; gap: 12px; padding: 10px 16px; font-weight: 700; background: #000; color: #fff; border-radius: 10px; align-items:center; }
-          .row-box { display: flex; gap: 16px; padding: 12px 18px; align-items: center; border-radius: 12px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 56px; }
-          .row-box .col-team { flex: 6; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .row-box .col-first { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
-          .row-box .col-second { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
-          .row-box .col-reserve { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
-          .row-box .col-date { flex: 1; min-width: 140px; text-align: right; color: #fff; font-weight: 600; }
-          .header-row .h-col { padding: 0 8px; }
-          .name-first { display:block; font-size:14px; line-height:1.05; }
-          .name-last { display:block; font-size:14px; line-height:1.05; opacity:0.95; }
-        </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown('<div class="racers-container">', unsafe_allow_html=True)
-
-        if caption:
-            st.markdown(f"<h4 style='margin:6px 0 10px 0;color:#fff;font-weight:700'>{_html.escape(caption)}</h4>", unsafe_allow_html=True)
-
-        header_html = (
+            Renders styled list of rows from `table_name` (now reading calls_*_new).
+            - Filtra per league se league_id è fornito.
+            - Prima colonna: teams.name trovata cercando una riga in teams con UUID == calls_row['uuid'] e league == calls_row['league'].
+            - Colonne dinamiche: in base alla configurazione di lega (N, A) mostra First/Second/... e First Reserve/Second Reserve/...
+            - prev_limit_iso: se fornito, le righe con when < prev_limit_iso mostrano N/A (eccetto Team).
             """
-            <div class="header-row">
-              <div class="h-col" style="flex:6">Team</div>
-              <div class="h-col" style="flex:2">First Driver</div>
-              <div class="h-col" style="flex:2">Second Driver</div>
-              <div class="h-col" style="flex:2">Reserve</div>
-              <div class="h-col" style="flex:1; text-align:right; min-width:140px">Date</div>
-            </div>
-            """
-        )
-        st.markdown(header_html, unsafe_allow_html=True)
-
-        # helper name formatter (cleans brackets/quotes and formats First / Last)
-        def clean_raw_name(n):
-            if n is None:
-                return ""
-            s = str(n).strip()
-            # if looks like a Python list string, try to literal_eval; otherwise strip outer brackets and quotes
-            if s.startswith("[") and s.endswith("]"):
-                # attempt to extract single element if someone stored a whole list into a field by mistake
-                try:
-                    parsed = ast.literal_eval(s)
-                    if isinstance(parsed, (list, tuple)) and len(parsed) == 1:
-                        s = str(parsed[0]).strip()
-                    else:
-                        # if it's multiple elements, join them with comma (fallback) but we prefer to leave original cleaned
-                        s = ", ".join([str(x).strip() for x in parsed]) if isinstance(parsed, (list, tuple)) else s
-                except Exception:
-                    s = s[1:-1].strip()
-            # remove surrounding quotes if present
-            if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
-                s = s[1:-1].strip()
-            # final cleanup of stray brackets/quotes
-            s = s.strip().strip("[]").strip().strip('\'"')
-            return s
-
-        def format_name_for_display(name_raw):
-            nm = clean_raw_name(name_raw)
-            if not nm:
-                return ""
-            parts = nm.split()
-            if len(parts) == 1:
-                return _html.escape(parts[0])
-            lower = nm.lower()
-            if lower == 'fabio di giannantonio':
-                first = _html.escape(parts[0])
-                last = _html.escape(' '.join(parts[1:]))
-                return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
-            first = _html.escape(parts[0])
-            last = _html.escape(" ".join(parts[1:]))
-            return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
-
-        # parse prev_limit into aware dt (UTC assumed if naive)
-        prev_limit_dt = None
-        if prev_limit_iso:
             try:
-                prev_limit_dt = datetime.fromisoformat(str(prev_limit_iso))
-                if prev_limit_dt.tzinfo is None:
-                    prev_limit_dt = prev_limit_dt.replace(tzinfo=timezone.utc)
+            # read calls rows, prefer filter by league if present
+                q = supabase.from_(table_name).select("*")
+                if league_id:
+                    q = q.eq("league", league_id)
+                calls = q.execute().data or []
             except Exception:
-                prev_limit_dt = None
+                calls = []
 
-        for r in calls:
-            team_id = r.get("team")
-            if isinstance(team_id, dict):
-                team_name = team_id.get("name") or team_id.get("Name") or str(team_id)
-            else:
-                team_name = team_map.get(team_id, team_id)
+            if not calls:
+                st.info(f"Nessuna chiamata disponibile per {table_name}.")
+                return
 
-            first_raw = r.get("first") or ""
-            second_raw = r.get("second") or ""
-            reserve_raw = r.get("reserve") or r.get("reserve_two") or r.get("reserve_three") or r.get("reserve_four") or ""
-
-            first_display = format_name_for_display(first_raw)
-            second_display = format_name_for_display(second_raw)
-            reserve_display = format_name_for_display(reserve_raw)
-
-            when_raw = r.get("when") or r.get("When") or ""
-            date_str = _html.escape(str(when_raw))
-
-            show_na = False
-            try:
-                if prev_limit_dt and when_raw:
-                    when_dt = datetime.fromisoformat(str(when_raw))
-                    if when_dt.tzinfo is None:
-                        when_dt = when_dt.replace(tzinfo=timezone.utc)
-                    if when_dt < prev_limit_dt:
-                        show_na = True
-            except Exception:
-                show_na = False
-
-            if show_na:
-                first_display = second_display = reserve_display = "N/A"
-                date_str = "N/A"
-            else:
+        # get league config (N, A) if possible (fallback to defaults)
+            N = None
+            A = 0
+            if league_id:
                 try:
-                    dt = datetime.fromisoformat(str(when_raw))
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    dt_it = dt.astimezone(IT_TZ)
-                    date_str = dt_it.strftime('%H:%M:%S, %d/%m/%Y')
+                    lr = supabase.from_("leagues").select("*").eq("ID", league_id).limit(1).execute().data or []
+                    if lr:
+                        lr0 = lr[0]
+                        if champ_code == "F1":
+                            N = lr0.get("team_constituent_f1") or lr0.get("team_constituent")
+                            A = lr0.get("active_f1") if lr0.get("active_f1") is not None else 0
+                        else:
+                            N = lr0.get("team_constituent_mgp") or lr0.get("team_constituent")
+                            A = lr0.get("active_mgp") if lr0.get("active_mgp") is not None else lr0.get("active_gp", 0)
                 except Exception:
                     pass
 
-            row_html = (
-                '<div class="row-box">'
-                f'<div class="col-team" title="{_html.escape(str(team_name))}">{_html.escape(str(team_name))}</div>'
-                f'<div class="col-first" title="{_html.escape(str(first_raw))}">{first_display}</div>'
-                f'<div class="col-second" title="{_html.escape(str(second_raw))}">{second_display}</div>'
-                f'<div class="col-reserve" title="{_html.escape(str(reserve_raw))}">{reserve_display}</div>'
-                f'<div class="col-date">{_html.escape(date_str)}</div>'
-                '</div>'
-            )
-            st.markdown(row_html, unsafe_allow_html=True)
+        # fallbacks and sanitization
+            try:
+                N = int(N) if N is not None else None
+            except Exception:
+                N = None
+            try:
+                A = int(A) if A is not None else 0
+            except Exception:
+                A = 0
+            if N is None:
+            # if league config missing, infer max columns present in calls rows (best-effort)
+                N = 4
+            if A < 0:
+                A = 0
+            if A > 4:
+                A = 4
+            if A > N:
+                A = N
+            R = max(0, N - A)
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        # build active/reserve field lists (max 4 supported)
+            ACTIVE_FIELDS = ["first", "second", "third", "fourth"][:N]
+            RESERVE_FIELDS = ["reserve", "reserve_two", "reserve_three", "reserve_four"][:R]
+
+        # CSS (reuse your existing CSS)
+            st.markdown(
+                """
+            <style>
+              .racers-container { font-family: sans-serif; color: #fff; }
+              .header-row { display: flex; gap: 12px; padding: 10px 16px; font-weight: 700; background: #000; color: #fff; border-radius: 10px; align-items:center; }
+              .row-box { display: flex; gap: 16px; padding: 12px 18px; align-items: center; border-radius: 12px; margin: 10px 0; background: linear-gradient(180deg,#1f1f1f,#171717); border: 1px solid rgba(255,255,255,0.03); min-height: 56px; }
+              .row-box .col-team { flex: 6; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+              .row-box .col-first { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
+              .row-box .col-second { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
+              .row-box .col-reserve { flex: 2; color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: normal; }
+              .row-box .col-date { flex: 1; min-width: 140px; text-align: right; color: #fff; font-weight: 600; }
+              .header-row .h-col { padding: 0 8px; }
+              .name-first { display:block; font-size:14px; line-height:1.05; }
+              .name-last { display:block; font-size:14px; line-height:1.05; opacity:0.95; }
+            </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.markdown('<div class="racers-container">', unsafe_allow_html=True)
+
+            if caption:
+                st.markdown(f"<h4 style='margin:6px 0 10px 0;color:#fff;font-weight:700'>{_html.escape(caption)}</h4>", unsafe_allow_html=True)
+
+        # build header columns dynamically
+            header_cols_html = f'<div class="header-row"><div class="h-col" style="flex:6">Team</div>'
+        # active columns
+            labels_active = ["First", "Second", "Third", "Fourth"]
+            for i in range(A):
+                header_cols_html += f'<div class="h-col" style="flex:2">{labels_active[i]}</div>'
+        # reserve columns
+            labels_res = ["First Reserve", "Second Reserve", "Third Reserve", "Fourth Reserve"]
+            for i in range(R):
+                header_cols_html += f'<div class="h-col" style="flex:2">{labels_res[i]}</div>'
+            header_cols_html += '<div class="h-col" style="flex:1; text-align:right; min-width:140px">Date</div></div>'
+            st.markdown(header_cols_html, unsafe_allow_html=True)
+
+        # helper functions reused from outer scope (clean_raw_name / format_name_for_display) - assume they exist in the file scope
+            def clean_raw_name(n):
+                if n is None:
+                    return ""
+                s = str(n).strip()
+                if s.startswith("[") and s.endswith("]"):
+                    try:
+                        parsed = ast.literal_eval(s)
+                        if isinstance(parsed, (list, tuple)) and len(parsed) == 1:
+                            s = str(parsed[0]).strip()
+                        else:
+                            s = ", ".join([str(x).strip() for x in parsed]) if isinstance(parsed, (list, tuple)) else s
+                    except Exception:
+                        s = s[1:-1].strip()
+                if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+                    s = s[1:-1].strip()
+                s = s.strip().strip("[]").strip().strip('\'"')
+                return s
+
+            def format_name_for_display(name_raw):
+                nm = clean_raw_name(name_raw)
+                if not nm:
+                    return ""
+                parts = nm.split()
+                if len(parts) == 1:
+                    return _html.escape(parts[0])
+                lower = nm.lower()
+                if lower == 'fabio di giannantonio':
+                    first = _html.escape(parts[0])
+                    last = _html.escape(' '.join(parts[1:]))
+                    return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
+                first = _html.escape(parts[0])
+                last = _html.escape(" ".join(parts[1:]))
+                return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
+
+        # prefetch teams by uuid for this league (so we can map calls_row['uuid'] -> team name)
+            teams_by_uuid = {}
+            try:
+                if league_id:
+                    teams_rows = supabase.from_("teams").select("UUID,name,league").eq("league", league_id).execute().data or []
+                else:
+                    teams_rows = supabase.from_("teams").select("UUID,name,league").execute().data or []
+                for t in teams_rows:
+                    key = t.get("UUID")
+                    if key:
+                        teams_by_uuid[key] = t.get("name") or teams_by_uuid.get(key)
+            except Exception:
+                teams_by_uuid = {}
+
+        # parse prev_limit into aware dt (UTC assumed if naive)
+            prev_limit_dt = None
+            if prev_limit_iso:
+                try:
+                    prev_limit_dt = datetime.fromisoformat(str(prev_limit_iso))
+                    if prev_limit_dt.tzinfo is None:
+                        prev_limit_dt = prev_limit_dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    prev_limit_dt = None
+
+            for r in calls:
+            # determine team name: prefer teams_by_uuid lookup using the calls row UUID
+                team_name = None
+                try:
+                    calls_owner_uuid = r.get("uuid")
+                    calls_owner_league = r.get("league", league_id)
+                    if calls_owner_uuid:
+                        team_name = teams_by_uuid.get(calls_owner_uuid)
+                # fallback: if the call row includes a 'team' key that we can lookup in team_map
+                    if not team_name:
+                        team_field = r.get("team")
+                        if isinstance(team_field, dict):
+                            team_name = team_field.get("name") or team_field.get("Name") or str(team_field)
+                        else:
+                            team_name = team_map.get(team_field, team_field)
+                    if not team_name:
+                        team_name = f"{_html.escape(str(r.get('uuid') or r.get('team') or 'Unknown'))}"
+                except Exception:
+                    team_name = str(r.get("team") or r.get("uuid") or "Unknown")
+
+            # build each cell value according to fields lists
+                active_values = []
+                for f in ACTIVE_FIELDS[:A]:
+                    v = r.get(f) or ""
+                    active_values.append(v)
+                reserve_values = []
+                for f in RESERVE_FIELDS[:R]:
+                    v = r.get(f) or ""
+                    reserve_values.append(v)
+
+            # when / date formatting and prev_limit check
+                when_raw = r.get("when") or r.get("When") or ""
+                date_str = _html.escape(str(when_raw))
+
+                show_na = False
+                try:
+                    if prev_limit_dt and when_raw:
+                        when_dt = datetime.fromisoformat(str(when_raw))
+                        if when_dt.tzinfo is None:
+                            when_dt = when_dt.replace(tzinfo=timezone.utc)
+                        if when_dt < prev_limit_dt:
+                            show_na = True
+                except Exception:
+                    show_na = False
+
+                if show_na:
+                # replace all driver columns with N/A except Team
+                    active_values = ["N/A"] * A
+                    reserve_values = ["N/A"] * R
+                    date_str = "N/A"
+                else:
+                    try:
+                        dt = datetime.fromisoformat(str(when_raw))
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        dt_it = dt.astimezone(IT_TZ)
+                        date_str = dt_it.strftime('%H:%M:%S, %d/%m/%Y')
+                    except Exception:
+                        pass
+
+            # format each name cell using format_name_for_display
+                def fmt_cell(x):
+                    return format_name_for_display(x) if x and x != "N/A" else _html.escape(str(x or ""))
+
+            # assemble row HTML with same flex sizing as header
+                row_html = '<div class="row-box">'
+                row_html += f'<div class="col-team" title="{_html.escape(str(team_name))}">{_html.escape(str(team_name))}</div>'
+
+            # active columns (use class col-first/col-second for styling; if more than 2 active, reuse classes)
+                for i, val in enumerate(active_values):
+                    cls = "col-first" if i == 0 else ("col-second" if i == 1 else "col-reserve")
+                    row_html += f'<div class="{cls}" title="{_html.escape(str(val))}">{fmt_cell(val)}</div>'
+
+            # reserve columns
+                for i, val in enumerate(reserve_values):
+                    row_html += f'<div class="col-reserve" title="{_html.escape(str(val))}">{fmt_cell(val)}</div>'
+
+                row_html += f'<div class="col-date">{_html.escape(date_str)}</div>'
+                row_html += '</div>'
+
+                st.markdown(row_html, unsafe_allow_html=True)
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+
+        # helper name formatter (cleans brackets/quotes and formats First / Last)
+            def clean_raw_name(n):
+                if n is None:
+                    return ""
+                s = str(n).strip()
+            # if looks like a Python list string, try to literal_eval; otherwise strip outer brackets and quotes
+                if s.startswith("[") and s.endswith("]"):
+                # attempt to extract single element if someone stored a whole list into a field by mistake
+                    try:
+                        parsed = ast.literal_eval(s)
+                        if isinstance(parsed, (list, tuple)) and len(parsed) == 1:
+                            s = str(parsed[0]).strip()
+                        else:
+                        # if it's multiple elements, join them with comma (fallback) but we prefer to leave original cleaned
+                            s = ", ".join([str(x).strip() for x in parsed]) if isinstance(parsed, (list, tuple)) else s
+                    except Exception:
+                        s = s[1:-1].strip()
+            # remove surrounding quotes if present
+                if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+                    s = s[1:-1].strip()
+            # final cleanup of stray brackets/quotes
+                s = s.strip().strip("[]").strip().strip('\'"')
+                return s
+
+            def format_name_for_display(name_raw):
+                nm = clean_raw_name(name_raw)
+                if not nm:
+                    return ""
+                parts = nm.split()
+                if len(parts) == 1:
+                    return _html.escape(parts[0])
+                lower = nm.lower()
+                if lower == 'fabio di giannantonio':
+                    first = _html.escape(parts[0])
+                    last = _html.escape(' '.join(parts[1:]))
+                    return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
+                first = _html.escape(parts[0])
+                last = _html.escape(" ".join(parts[1:]))
+                return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
+
+        # parse prev_limit into aware dt (UTC assumed if naive)
+            prev_limit_dt = None
+            if prev_limit_iso:
+                try:
+                    prev_limit_dt = datetime.fromisoformat(str(prev_limit_iso))
+                    if prev_limit_dt.tzinfo is None:
+                        prev_limit_dt = prev_limit_dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    prev_limit_dt = None
+
+            for r in calls:
+                team_id = r.get("team")
+                if isinstance(team_id, dict):
+                    team_name = team_id.get("name") or team_id.get("Name") or str(team_id)
+                else:
+                    team_name = team_map.get(team_id, team_id)
+
+                first_raw = r.get("first") or ""
+                second_raw = r.get("second") or ""
+                reserve_raw = r.get("reserve") or r.get("reserve_two") or r.get("reserve_three") or r.get("reserve_four") or ""
+
+                first_display = format_name_for_display(first_raw)
+                second_display = format_name_for_display(second_raw)
+                reserve_display = format_name_for_display(reserve_raw)
+
+                when_raw = r.get("when") or r.get("When") or ""
+                date_str = _html.escape(str(when_raw))
+
+                show_na = False
+                try:
+                    if prev_limit_dt and when_raw:
+                        when_dt = datetime.fromisoformat(str(when_raw))
+                        if when_dt.tzinfo is None:
+                            when_dt = when_dt.replace(tzinfo=timezone.utc)
+                        if when_dt < prev_limit_dt:
+                            show_na = True
+                except Exception:
+                    show_na = False
+
+                if show_na:
+                    first_display = second_display = reserve_display = "N/A"
+                    date_str = "N/A"
+                else:
+                    try:
+                        dt = datetime.fromisoformat(str(when_raw))
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        dt_it = dt.astimezone(IT_TZ)
+                        date_str = dt_it.strftime('%H:%M:%S, %d/%m/%Y')
+                    except Exception:
+                        pass
+
+                row_html = (
+                    '<div class="row-box">'
+                    f'<div class="col-team" title="{_html.escape(str(team_name))}">{_html.escape(str(team_name))}</div>'
+                    f'<div class="col-first" title="{_html.escape(str(first_raw))}">{first_display}</div>'
+                    f'<div class="col-second" title="{_html.escape(str(second_raw))}">{second_display}</div>'
+                    f'<div class="col-reserve" title="{_html.escape(str(reserve_raw))}">{reserve_display}</div>'
+                    f'<div class="col-date">{_html.escape(date_str)}</div>'
+                    '</div>'
+                )
+                st.markdown(row_html, unsafe_allow_html=True)
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
     def ensure_calls_row(table_name, user_uuid, league_id=None):
         """
@@ -550,9 +741,9 @@ def callup_screen(user):
         if st.button(f"Save {category_name} Call-up", key=save_key):
             all_selected = [v for v in (active_selected + reserve_selected) if v]
             if len(all_selected) < (A + R):
-                st.error(f"Devi selezionare tutti i {A + R} piloti richiesti ({A} attivi + {R} riserve).")
+                st.error(f"You shall select {A + R} racers ({A} actives + {R} reserves).")
             elif len(set(all_selected)) < len(all_selected):
-                st.error("Devi selezionare piloti distinti, senza duplicati.")
+                st.error("You shall select different racers.")
             else:
                 payload = build_calls_payload_from_selections(active_selected, reserve_selected)
                 payload["when"] = datetime.now(timezone.utc).isoformat()
@@ -586,10 +777,9 @@ def callup_screen(user):
         except Exception:
             prev_limit_iso = None
 
-        # show public calls table
         if calls_public_table:
             caption = "Call-ups | F1" if champ_code == "F1" else "Call ups | MotoGP"
-            display_calls_table(calls_public_table, team_map, caption=caption, prev_limit_iso=prev_limit_iso)
+            display_calls_table(calls_new_table, team_map, caption=caption, prev_limit_iso=prev_limit_iso, league_id=league_id, champ_code=champ_code)
 
     # --- top-level: determine user's league and render sections ---
     user_league_id = user.get("league") or user.get("league_id") or st.session_state.get("selected_league")
