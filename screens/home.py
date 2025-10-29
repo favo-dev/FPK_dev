@@ -1,4 +1,3 @@
-# screens/home.py
 import streamlit as st
 from screens.your_team import your_team_screen
 from screens.callups import callup_screen
@@ -9,34 +8,21 @@ from screens.show_racers import show_racer_screen
 from screens.racers import racers_screen
 from screens.roll import roll_screen
 from supabase import create_client
+from logic.functions import go_to_screen
 
 # -------------------------------------------------------------------------------------------
-# SUPABASE CLIENT
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
+# --------------------- SUPABASE CLIENT --------------------------------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-
-def _get_logo_url():
-    """
-    Try to obtain a signed URL for a private file, fallback to public path.
-    Adjust bucket/path to your storage layout.
-    """
-    try:
-        bucket = supabase.storage.from_("figures")
-        # Adjust filename/path to your actual stored path
-        signed = bucket.create_signed_url("new_favicon.svg", expires_in=60)
-        # depending on client, keys differ
-        if isinstance(signed, dict):
-            return signed.get("signedURL") or signed.get("signed_url") or None
-        return None
-    except Exception:
-        # fallback public path (ensure the file is public in Supabase storage)
-        return "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/figures/new_favicon.svg"
-
+# --------------------- HOME SCREEN ----------------------------------------------------
 
 def home_screen(user):
-    # protection: if user is None, show message and avoid crash
+    # protezione: se user è None, mostra un messaggio e non crashare
     if not user:
         st.warning("Profilo non selezionato. Torna alla schermata precedente o scegli un profilo.")
         return
@@ -64,34 +50,30 @@ def home_screen(user):
     }
     nav_to_screen = {v: k for k, v in screen_to_nav.items()}
 
+    # Options list
     options = list(screen_to_nav.values())
 
-    # If nav_selection is not valid, reset to default
+    # Ensure nav_selection is valid; if not, set to first option (safe default)
     current_nav = st.session_state.get("nav_selection")
     if current_nav not in options:
+        # fallback: pick sensible default
         st.session_state["nav_selection"] = options[0]
         current_nav = options[0]
 
-    # provide unique key to avoid duplicate-element id
+    # IMPORTANT: provide a unique key to avoid StreamlitDuplicateElementId
     selection = st.sidebar.selectbox(
         "Navigate",
         options,
         index=options.index(current_nav),
-        key="main_nav_select"
+        key="main_nav_select"   # <-- unique key added
     )
 
-    logo_url = _get_logo_url()
-    if logo_url:
-        try:
-            # use_column_width deprecated in some versions; use width param if needed
-            st.sidebar.image(logo_url, use_container_width=True)
-        except Exception:
-            # ignore image loading errors
-            pass
+    logo_url = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=..."
+    st.sidebar.image(logo_url, width='stretch')
 
     if selection != st.session_state.nav_selection:
         st.session_state.nav_selection = selection
-        st.session_state.screen = nav_to_screen.get(selection, "team")
+        st.session_state.screen = nav_to_screen[selection]
         st.rerun()
 
     # routing
@@ -116,7 +98,28 @@ def home_screen(user):
     elif st.session_state.screen == "roll":
         roll_screen(user)
     elif st.session_state.screen == "confirm_exit":
-        from screens.confirm_exit import confirm_exit_screen  # lazy import to avoid circular problems
         confirm_exit_screen()
     elif st.session_state.screen == "racer_detail":
         show_racer_screen()
+
+
+
+# --------------------- EXIT SCREEN ----------------------------------------------------
+
+def confirm_exit_screen():
+     st.header("Exit Confirmation")
+     st.warning("Are you sure you want to log out from this profile?")
+
+     col1, col2 = st.columns(2)
+
+     with col1:
+         if st.button("Continue", key="confirm_exit_yes"):
+             st.session_state.logged_in = False
+             st.session_state.go = False
+             st.session_state.screen = "team"  
+             st.rerun()
+
+     with col2:
+         if st.button("Abort", key="confirm_exit_no"):
+             st.session_state.screen = "team"
+             st.rerun()
