@@ -160,9 +160,52 @@ if st.session_state.show_reset_password:
                     st.error(f"Error updating password: {e}")
 
 # -------------------------------------------------------------------------------------------
+# --- Ensure session user row is fresh for selected_league before rendering screens ---
+def _ensure_session_user_row():
+    try:
+        sess_user = st.session_state.get("user")  # può essere None o dict
+        player_uuid = None
+        if isinstance(sess_user, dict) and sess_user.get("UUID"):
+            player_uuid = sess_user.get("UUID")
+        else:
+            # prova a prendere UUID dall'account corrente (se lo salvi altrove)
+            player_uuid = st.session_state.get("player_uuid") or (sess_user.get("uuid") if isinstance(sess_user, dict) else None)
+
+        sel_league = st.session_state.get("selected_league")
+
+        # se abbiamo uuid + league, fetch dalla tabella teams (try both UUID/uuid)
+        if player_uuid and sel_league:
+            try:
+                resp = supabase.from_("teams").select("*").eq("UUID", player_uuid).eq("league", sel_league).limit(1).execute()
+                rows = resp.data or []
+            except Exception:
+                rows = []
+            if not rows:
+                try:
+                    resp = supabase.from_("teams").select("*").eq("uuid", player_uuid).eq("league", sel_league).limit(1).execute()
+                    rows = resp.data or []
+                except Exception:
+                    rows = []
+
+            if rows:
+                st.session_state["user"] = rows[0]
+                return
+
+        # fallback: se non c'è selected_league ma c'è un UUID, prendi la prima riga disponibile
+        if player_uuid and not sel_league:
+            try:
+                any_rows = supabase.from_("teams").select("*").or_(f"UUID.eq.{player_uuid},uuid.eq.{player_uuid}").limit(1).execute().data or []
+                if any_rows:
+                    st.session_state["user"] = any_rows[0]
+                    st.session_state["selected_league"] = any_rows[0].get("league")
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 if st.session_state.logged_in:
     league_screen(st.session_state.user)
+     _ensure_session_user_row()
 else:
     st.title("Login / Registration")
     choice = st.radio("Select:", ["Login", "Registration"]) 
@@ -256,6 +299,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
