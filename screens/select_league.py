@@ -252,7 +252,7 @@ def league_screen(user):
                 rows = resp.data or []
                 st.session_state["user"] = rows[0] if rows else None
                 st.session_state.go = True
-                st.session_state = "Nope"
+                del st.session_state["initialized"]
                 st.rerun()
 
         st.markdown('</div>', unsafe_allow_html=True)
