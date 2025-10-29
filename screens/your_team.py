@@ -106,14 +106,48 @@ def your_team_screen(user):
     # --- controllo: quante righe 'teams' ha questo user? (per abilitare "Change league")
     user_uuid = user.get("UUID")
     teams_rows_for_user = []
-    try:
-        if user_uuid:
-            teams_rows_for_user = supabase.from_("teams").select("ID,league").eq("UUID", user_uuid).execute().data or []
-    except Exception:
-        teams_rows_for_user = []
-    teams_count = len(teams_rows_for_user)
-    st.write(teams_count)
+    teams_count = 0
+
+    if user_uuid:
+        # 1) prova veloce e parsimoniosa: richiedi il count usando la colonna 'UUID'
+        try:
+            resp = supabase.from_("teams").select("UUID", count="exact").eq("UUID", user_uuid).execute()
+            # supabase-python può restituire .count oppure (resp.data) con le righe
+            if getattr(resp, "count", None) is not None:
+                teams_count = resp.count or 0
+            else:
+                teams_rows_for_user = resp.data or []
+                teams_count = len(teams_rows_for_user)
+        except Exception:
+            teams_count = 0
+
+        # 2) se zero, riprova con 'uuid' minuscolo (molti schemi usano lowercase)
+        if teams_count == 0:
+            try:
+                resp = supabase.from_("teams").select("uuid", count="exact").eq("uuid", user_uuid).execute()
+                if getattr(resp, "count", None) is not None:
+                    teams_count = resp.count or 0
+                else:
+                    teams_rows_for_user = resp.data or []
+                    teams_count = len(teams_rows_for_user)
+            except Exception:
+                teams_count = teams_count
+
+        # 3) fallback: scarica poche colonne e conta localmente controllando entrambi i nomi di campo
+        if teams_count == 0:
+            try:
+                all_rows = supabase.from_("teams").select("UUID,uuid,ID,league").limit(1000).execute().data or []
+                # conta righe in cui UUID o uuid corrisponde
+                matching = [r for r in all_rows if (r.get("UUID") == user_uuid or r.get("uuid") == user_uuid)]
+                teams_count = len(matching)
+                if teams_count:
+                    teams_rows_for_user = matching
+            except Exception:
+                teams_count = teams_count
+
+    # flag utilizzato per mostrare/nascondere il pulsante Change league
     has_multiple_teams = teams_count > 1
+
 
     # Ora 4 colonne: Call-ups | Customize | Change league (condizionale) | Exit
     col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
