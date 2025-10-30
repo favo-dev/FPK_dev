@@ -26,6 +26,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # --------------------- RACERS SCREEN ----------------------------------------------------
 
 def show_racer_screen(user):
+    league_id = user["league"]
     pilot = st.session_state.get("selected_pilot") or st.session_state.get("selected_driver")
     st.markdown("""
     <style>
@@ -51,12 +52,13 @@ def show_racer_screen(user):
         found_in_mgp = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_mgp)
         if found_in_f1 and not found_in_mgp:
             category = "F1"
-            this_pilot_data = supabase.from_("league_f1_stats").eq("ID", league_id).limit(1).execute().data or []
-           
+            this_pilot_data = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute().data or []
         elif found_in_mgp and not found_in_f1:
             category = "MotoGP"
+            this_pilot_data = supabase.from_("league_mgp_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute().data or []
         elif found_in_f1 and found_in_mgp:
             category = "F1"
+            this_pilot_data = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute().data or []
 
     data = data_f1 if (category or "").upper().startswith("F1") else data_mgp
 
@@ -276,7 +278,7 @@ def show_racer_screen(user):
 
     review_rows = []
     for label, key in stat_keys:
-        raw = pilot_info.get(key)
+        raw = this_pilot_data.get(key)
         display = _parse_display_value(raw)
         count_hint = ""
         try:
@@ -314,7 +316,7 @@ def show_racer_screen(user):
         hist_fields.append(("Historical Sprint poles", "historical_sprint_poles"))
 
     for label, field in hist_fields:
-        raw = pilot_info.get(field)
+        raw = this_pilot_data.get(field)
         display = _parse_display_value(raw)
         count = _count_items_like_list(raw)
         count_hint = f"  (x{count})" if count and count > 0 else ""
