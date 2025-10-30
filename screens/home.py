@@ -92,7 +92,7 @@ def home_screen(user):
     elif st.session_state.screen in ["rules_f1", "rules_mgp"]:
         show_rules_screen(st.session_state.rules_data, st.session_state.screen)
     elif st.session_state.screen == "pilot_details":
-        show_racer_screen()
+        show_racer_screen(user)
     elif st.session_state.screen == "racers":
         racers_screen(user)
     elif st.session_state.screen == "roll":
@@ -100,7 +100,7 @@ def home_screen(user):
     elif st.session_state.screen == "confirm_exit":
         confirm_exit_screen()
     elif st.session_state.screen == "racer_detail":
-        show_racer_screen()
+        show_racer_screen(user)
 
 
 
