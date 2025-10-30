@@ -75,7 +75,7 @@ def show_racer_screen(user):
         cat = (category or "").upper().strip()
 
     # Log diagnostico (rimuovere in produzione)
-        st.write("DEBUG | league_id:", league_id_str, "| player_id:", pid_str, "| category:", cat)
+        #st.write("DEBUG | league_id:", league_id_str, "| player_id:", pid_str, "| category:", cat)
 
     # Se mancano dati essenziali, esci subito
         if not league_id_str or not pid_str:
@@ -86,7 +86,7 @@ def show_racer_screen(user):
         # Selezione tabella in base alla categoria
             if cat.startswith("F1"):
                 table_name = "league_f1_stats"
-            elif cat.startswith(("MOTO", "MGP")):
+            elif cat.startswith(("MOTO", "MGP","Moto")):
                 table_name = "league_mgp_stats"
             else:
                 table_name = None
