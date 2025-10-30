@@ -1,4 +1,6 @@
 import streamlit as st
+import ast
+import json
 import streamlit.components.v1 as components
 from supabase import create_client
 from logic.functions import _estimate_rows_height, safe_load_team_list, _render_pilot_buttons, _render_simple_table_html, safe_rgb_to_hex
@@ -161,10 +163,6 @@ def championship_screen(user):
             st.session_state.screen = "rules_mgp"
             st.session_state.rules_data = rules_mgp
             st.rerun()
-
-import ast
-import json
-import streamlit as st
 
 def edit_rules_screen():
     """
