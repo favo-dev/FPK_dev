@@ -67,21 +67,61 @@ def show_racer_screen(user):
             category = ""
 
     # Based on category, fetch the stats row (limit 1) and extract first row as dict
+    # --- Robust player stats fetch ---
     try:
-        if (category or "").upper().startswith("F1"):
-            resp = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).execute()
-            rows = resp.data or []
-            st.write(rows)
-            this_pilot_data = rows[0] if rows else {}
-        elif (category or "").upper().startswith("MOTO") or (category or "").upper().startswith("MGP") or (category or "").upper().startswith("Moto"):
-            resp = supabase.from_("league_mgp_stats").eq("league_id", league_id).eq("player_id", pid).execute()
-            rows = resp.data or []
-            this_pilot_data = rows[0] if rows else {}
-        else:
+    # Normalizza i parametri (entrambi devono essere stringhe "pulite")
+        league_id_str = str(league_id).strip() if league_id is not None else ""
+        pid_str = str(pid).strip() if pid is not None else ""
+        cat = (category or "").upper().strip()
+
+    # Log diagnostico (rimuovere in produzione)
+        st.write("DEBUG | league_id:", league_id_str, "| player_id:", pid_str, "| category:", cat)
+
+    # Se mancano dati essenziali, esci subito
+        if not league_id_str or not pid_str:
+            st.warning("Missing league_id or player_id, skipping stats query.")
             this_pilot_data = {}
-    except Exception:
-        # never crash rendering because of DB errors — fallback to empty dict
+
+        else:
+        # Selezione tabella in base alla categoria
+            if cat.startswith("F1"):
+                table_name = "league_f1_stats"
+            elif cat.startswith(("MOTO", "MGP")):
+                table_name = "league_mgp_stats"
+            else:
+                table_name = None
+
+        # Se la categoria è riconosciuta, esegui la query
+            if table_name:
+                try:
+                    resp = (
+                        supabase
+                        .from_(table_name)
+                        .select("*")
+                        .eq("league_id", league_id_str)
+                        .eq("player_id", pid_str)
+                        .limit(1)
+                        .execute()
+                    )
+
+                # Gestione robusta dei risultati
+                    if hasattr(resp, "data") and resp.data:
+                        this_pilot_data = resp.data[0]
+                    else:
+                        st.info(f"No stats found in {table_name} for player {pid_str}")
+                        this_pilot_data = {}
+
+                except Exception as query_err:
+                    st.error(f"Query error on {table_name}: {query_err}")
+                    this_pilot_data = {}
+            else:
+                st.info("Category not recognized — skipping stats lookup.")
+                this_pilot_data = {}
+
+    except Exception as outer_err:
+        st.error(f"Unexpected error fetching pilot data: {outer_err}")
         this_pilot_data = {}
+
 
 
     data = data_f1 if (category or "").upper().startswith("F1") else data_mgp
