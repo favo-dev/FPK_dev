@@ -3,7 +3,7 @@ from screens.your_team import your_team_screen
 from screens.callups import callup_screen
 from screens.calendar import calendar_screen, race_results_screen
 from screens.standings import standings_screen
-from screens.championship import championship_screen, show_rules_screen
+from screens.championship import championship_screen, show_rules_screen, edit_rules_screen
 from screens.show_racers import show_racer_screen
 from screens.racers import racers_screen
 from screens.roll import roll_screen
@@ -101,6 +101,8 @@ def home_screen(user):
         confirm_exit_screen()
     elif st.session_state.screen == "racer_detail":
         show_racer_screen(user)
+    elif st.session_state.screen == "edit_rules":
+        edit_rules_screen()
 
 
 
