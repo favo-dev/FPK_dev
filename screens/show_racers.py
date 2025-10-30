@@ -50,7 +50,6 @@ def show_racer_screen(user):
     this_pilot_data = {}  # always a dict (row) or empty dict fallback
 
     pid = str(pilot)
-    st.write(pid)
     # try to detect category by scanning the racers tables
     found_in_f1 = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_f1)
     found_in_mgp = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_mgp)
@@ -71,6 +70,7 @@ def show_racer_screen(user):
     try:
         if (category or "").upper().startswith("F1"):
             resp = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute()
+            st.write(resp)
             rows = resp.data or []
             this_pilot_data = rows[0] if rows else {}
         elif (category or "").upper().startswith("MOTO") or (category or "").upper().startswith("MGP") or (category or "").upper().startswith("Moto"):
