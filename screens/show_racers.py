@@ -27,6 +27,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 def show_racer_screen(user):
     league_id = user["league"]
+    st.write(user)
     st.write(league_id)
     pilot = st.session_state.get("selected_pilot") or st.session_state.get("selected_driver")
     st.markdown("""
