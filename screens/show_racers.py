@@ -40,15 +40,15 @@ def show_racer_screen():
         return
 
     try:
-        data_f1 = supabase.from_("racers_f1").select("*").execute().data or []
-        data_mgp = supabase.from_("racers_mgp").select("*").execute().data or []
+        data_f1 = supabase.from_("racers_f1_new").select("*").execute().data or []
+        data_mgp = supabase.from_("racers_mgp_new").select("*").execute().data or []
     except Exception:
         data_f1, data_mgp = [], []
 
     if not category:
         pid = str(pilot)
-        found_in_f1 = any((str(p.get("ID")) == pid) or (str(p.get("name")) == pid) for p in data_f1)
-        found_in_mgp = any((str(p.get("ID")) == pid) or (str(p.get("name")) == pid) for p in data_mgp)
+        found_in_f1 = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_f1)
+        found_in_mgp = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_mgp)
         if found_in_f1 and not found_in_mgp:
             category = "F1"
         elif found_in_mgp and not found_in_f1:
@@ -59,7 +59,7 @@ def show_racer_screen():
     data = data_f1 if (category or "").upper().startswith("F1") else data_mgp
 
     pilot_info = next(
-        (p for p in data if (str(p.get("ID")) == str(pilot)) or (str(p.get("name")) == str(pilot))),
+        (p for p in data if (str(p.get("id")) == str(pilot)) or (str(p.get("name")) == str(pilot))),
         None
     )
     if not pilot_info:
@@ -79,7 +79,7 @@ def show_racer_screen():
 
     # ---------------- PROFILE ------------------------------------------------------------------------
     profile_map_f1 = [
-        ("Name", pilot_info.get("name") or pilot_info.get("ID")),
+        ("Name", pilot_info.get("name") or pilot_info.get("id")),
         ("Number", pilot_info.get("number") or pilot_info.get("no") or pilot_info.get("race_number")),
         ("Nationality", pilot_info.get("nationality")),
         ("Birthday", pilot_info.get("birth_date")),
@@ -87,7 +87,7 @@ def show_racer_screen():
         ("Power Unit", pilot_info.get("PU") or pilot_info.get("pu") or pilot_info.get("power_unit")),
     ]
     profile_map_mgp = [
-        ("Name", pilot_info.get("name") or pilot_info.get("ID")),
+        ("Name", pilot_info.get("name") or pilot_info.get("id")),
         ("Number", pilot_info.get("number") or pilot_info.get("no") or pilot_info.get("race_number")),
         ("Nationality", pilot_info.get("nationality")),
         ("Birthday", pilot_info.get("birth_date")),
@@ -192,7 +192,7 @@ def show_racer_screen():
 
     if avg_value is None:
         avg_display = "N/A"
-        votes_text = "No votes" if (category or "").upper().startswith("F1") else "N/A (not F1)"
+        votes_text = "No votes" if (category or "").upper().startswith("F1") else "N/A"
     else:
         avg_display = f"{avg_value:.1f}"
         votes_text = f"based on {votes_count} race{'s' if votes_count != 1 else ''}"
