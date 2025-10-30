@@ -66,7 +66,7 @@ def championship_screen(user):
     loading_placeholder = st.empty()
     loading_placeholder.info("⏳ Loading...")
 
-    teams = supabase.from_("class").select("*").execute().data or []
+    teams = supabase.from_("teams").select("*").execute().data or []
     not_you = [team for team in teams if team.get("who") != user.get("who")]
     rules_f1 = supabase.from_("rules_f1").select("*").execute().data or []
     rules_mgp = supabase.from_("rules_mgp").select("*").execute().data or []
