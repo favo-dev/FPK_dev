@@ -69,14 +69,12 @@ def show_racer_screen(user):
     # Based on category, fetch the stats row (limit 1) and extract first row as dict
     try:
         if (category or "").upper().startswith("F1"):
-            st.write(league_id)
-            st.write(pid)
-            resp = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute()
-            st.write(resp)
+            resp = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).execute()
             rows = resp.data or []
+            st.write(rows)
             this_pilot_data = rows[0] if rows else {}
         elif (category or "").upper().startswith("MOTO") or (category or "").upper().startswith("MGP") or (category or "").upper().startswith("Moto"):
-            resp = supabase.from_("league_mgp_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute()
+            resp = supabase.from_("league_mgp_stats").eq("league_id", league_id).eq("player_id", pid).execute()
             rows = resp.data or []
             this_pilot_data = rows[0] if rows else {}
         else:
