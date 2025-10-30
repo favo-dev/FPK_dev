@@ -25,7 +25,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- RACERS SCREEN ----------------------------------------------------
 
-def show_racer_screen():
+def show_racer_screen(user):
     pilot = st.session_state.get("selected_pilot") or st.session_state.get("selected_driver")
     st.markdown("""
     <style>
