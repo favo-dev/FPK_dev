@@ -46,19 +46,42 @@ def show_racer_screen(user):
     except Exception:
         data_f1, data_mgp = [], []
 
+        # --- Determine category and load the pilot's stats row robustly ---
+    this_pilot_data = {}  # always a dict (row) or empty dict fallback
+
+    pid = str(pilot)
+    # try to detect category by scanning the racers tables
+    found_in_f1 = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_f1)
+    found_in_mgp = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_mgp)
+
     if not category:
-        pid = str(pilot)
-        found_in_f1 = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_f1)
-        found_in_mgp = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_mgp)
         if found_in_f1 and not found_in_mgp:
             category = "F1"
-            this_pilot_data = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute().data or []
         elif found_in_mgp and not found_in_f1:
             category = "MotoGP"
-            this_pilot_data = supabase.from_("league_mgp_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute().data or []
         elif found_in_f1 and found_in_mgp:
+            # ambiguous: prefer F1 by default (your original logic)
             category = "F1"
-            this_pilot_data = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute().data or []
+        else:
+            # not found in either table — leave category empty and handle later
+            category = ""
+
+    # Based on category, fetch the stats row (limit 1) and extract first row as dict
+    try:
+        if (category or "").upper().startswith("F1"):
+            resp = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute()
+            rows = resp.data or []
+            this_pilot_data = rows[0] if rows else {}
+        elif (category or "").upper().startswith("MOTO") or (category or "").upper().startswith("MGP"):
+            resp = supabase.from_("league_mgp_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute()
+            rows = resp.data or []
+            this_pilot_data = rows[0] if rows else {}
+        else:
+            this_pilot_data = {}
+    except Exception:
+        # never crash rendering because of DB errors — fallback to empty dict
+        this_pilot_data = {}
+
 
     data = data_f1 if (category or "").upper().startswith("F1") else data_mgp
 
