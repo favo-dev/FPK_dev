@@ -15,50 +15,94 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # --------------------- RULES SCREEN ----------------------------------------------------
 
 def show_rules_screen(rules_list, screen_name):
+    """
+    Mostra le regole passate in rules_list. Se l'utente corrente è il presidente
+    della league corrispondente mostra anche il pulsante "Change rules".
+    - screen_name è "rules_f1" oppure "rules_mgp"
+    """
     st.title("Rules for " + ("F1" if screen_name == "rules_f1" else "MotoGP"))
+
+    # recupera l'user dalla sessione (la app salva la riga 'teams' in st.session_state['user'])
+    user = st.session_state.get("user") or {}
+    user_uuid = (user.get("UUID") or user.get("uuid")) if isinstance(user, dict) else None
+    league_id = str(user.get("league")) if isinstance(user, dict) and user.get("league") is not None else None
+
+    # check: è il presidente della league?
+    is_president = False
+    if user_uuid and league_id:
+        try:
+            lr = supabase.from_("leagues").select("president,ID").eq("ID", league_id).limit(1).execute()
+            lrows = lr.data or []
+            if lrows:
+                league_row = lrows[0]
+                # president potrebbe essere stored come UUID o come who; facciamo confronto stringa pulita
+                pres = league_row.get("president")
+                if pres is not None and str(pres) == str(user_uuid):
+                    is_president = True
+        except Exception:
+            # non blockiamo la visualizzazione se la fetch fallisce
+            is_president = False
 
     if not rules_list:
         st.write("No rules available.")
-        return
+    else:
+        rows = []
+        for rule in rules_list:
+            if isinstance(rule, dict):
+                bonus = rule.get("rule", "N/A")
+                value = rule.get("value", "N/A")
+            else:
+                bonus = rule
+                value = ""
+            if isinstance(value, (list, tuple)):
+                value_str = ", ".join(str(v) for v in value)
+            else:
+                value_str = str(value)
+            rows.append((bonus, value_str))
 
-    rows = []
-    for rule in rules_list:
-        if isinstance(rule, dict):
-            bonus = rule.get("rule", "N/A")
-            value = rule.get("value", "N/A")
+        container_html = f"""
+        <div style='width:100%; background:#222; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.35); overflow:visible; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding-bottom:8px;'>
+            <div style='background:linear-gradient(90deg,#111,#0e0e0e); padding:8px 12px; font-weight:700; font-size:13px; color:#fff;'>Rules</div>
+            { _render_simple_table_html(rows) }
+        </div>
+        """
+
+        est_height, needs_scroll = _estimate_rows_height(rows,
+                                                         container_width_px=900,
+                                                         left_pct=0.70,
+                                                         right_pct=0.30,
+                                                         avg_char_px=7.0,
+                                                         line_height_px=18,
+                                                         vertical_padding_px=28,
+                                                         min_h=90,
+                                                         max_h=8000,
+                                                         safety_mul=1.15,
+                                                         per_row_padding_px=1)
+
+        components.html(container_html, height=est_height, scrolling=needs_scroll)
+
+    # pulsanti in basso: Go back sempre; Change rules solo per il presidente
+    cols = st.columns([1, 1])
+    with cols[0]:
+        if st.button("Go back", key=f"rules_go_back_{screen_name}"):
+            st.session_state.screen = "championship"
+            st.rerun()
+
+    with cols[1]:
+        if is_president:
+            label = "Change rules"
+            # key unica basata su screen_name per evitare collisioni tra F1/MotoGP
+            if st.button(label, key=f"change_rules_btn_{screen_name}"):
+                # imposta lo stato per entrare in modalità editing; il consumer dovrà gestire 'edit_rules'
+                st.session_state["rules_edit_target"] = screen_name  # "rules_f1" o "rules_mgp"
+                st.session_state["screen"] = "edit_rules"
+                # puoi anche passare le regole correnti in session_state se vuoi prepopolare il form:
+                st.session_state["rules_edit_data"] = rules_list
+                st.rerun()
         else:
-            bonus = rule
-            value = ""
-        if isinstance(value, (list, tuple)):
-            value_str = ", ".join(str(v) for v in value)
-        else:
-            value_str = str(value)
-        rows.append((bonus, value_str))
+            # spazio vuoto per mantenere layout coerente (opzionale)
+            st.markdown("<div style='opacity:.6; text-align:center; padding-top:6px'>Only president can change</div>", unsafe_allow_html=True)
 
-    container_html = f"""
-    <div style='width:100%; background:#222; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.35); overflow:visible; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding-bottom:8px;'>
-        <div style='background:linear-gradient(90deg,#111,#0e0e0e); padding:8px 12px; font-weight:700; font-size:13px; color:#fff;'>Rules</div>
-        { _render_simple_table_html(rows) }
-    </div>
-    """
-
-    est_height, needs_scroll = _estimate_rows_height(rows,
-                                                     container_width_px=900,
-                                                     left_pct=0.70,
-                                                     right_pct=0.30,
-                                                     avg_char_px=7.0,
-                                                     line_height_px=18,
-                                                     vertical_padding_px=28,
-                                                     min_h=90,
-                                                     max_h=8000,
-                                                     safety_mul=1.15,
-                                                     per_row_padding_px=1)
-
-    components.html(container_html, height=est_height, scrolling=needs_scroll)
-
-    if st.button("Go back", key="rules_go_back"):
-        st.session_state.screen = "championship"
-        st.rerun()
 
 # --------------------- CHAMPIONSHIP SCREEN ----------------------------------------------------
 
