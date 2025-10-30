@@ -51,7 +51,8 @@ def show_racer_screen():
         found_in_mgp = any((str(p.get("id")) == pid) or (str(p.get("name")) == pid) for p in data_mgp)
         if found_in_f1 and not found_in_mgp:
             category = "F1"
-            this_pilot_data = supabase.from_("league_f1_stats").select("*").execute().data or []
+            this_pilot_data = supabase.from_("league_f1_stats").eq("ID", league_id).limit(1).execute().data or []
+           
         elif found_in_mgp and not found_in_f1:
             category = "MotoGP"
         elif found_in_f1 and found_in_mgp:
