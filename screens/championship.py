@@ -161,4 +161,261 @@ def championship_screen(user):
             st.session_state.screen = "rules_mgp"
             st.session_state.rules_data = rules_mgp
             st.rerun()
+
+import ast
+import json
+import streamlit as st
+
+def edit_rules_screen():
+    """
+    Schermata per modificare le rules (F1 o MotoGP) per la league dell'utente.
+    Si aspetta che st.session_state["rules_edit_target"] sia "rules_f1" o "rules_mgp"
+    e che st.session_state["user"] contenga la riga 'teams' con 'league' e 'UUID'.
+    """
+
+    # --- safety checks / contesto ---
+    user = st.session_state.get("user") or {}
+    user_uuid = (user.get("UUID") or user.get("uuid")) if isinstance(user, dict) else None
+    league_id = str(user.get("league")) if isinstance(user, dict) and user.get("league") is not None else None
+    target = st.session_state.get("rules_edit_target")  # "rules_f1" o "rules_mgp"
+    if not target or target not in ("rules_f1", "rules_mgp"):
+        st.error("Editing target non definito. Torna indietro e riprova.")
+        if st.button("Go back"):
+            st.session_state.screen = "championship"
+            st.rerun()
+        return
+
+    # only president may edit - double-check
+    is_president = False
+    if user_uuid and league_id:
+        try:
+            lr = supabase.from_("leagues").select("president,ID").eq("ID", league_id).limit(1).execute()
+            lrows = lr.data or []
+            if lrows:
+                league_row = lrows[0]
+                pres = league_row.get("president")
+                if pres is not None and str(pres) == str(user_uuid):
+                    is_president = True
+        except Exception:
+            is_president = False
+
+    if not is_president:
+        st.error("Only the league president can change the rules.")
+        if st.button("Back"):
+            st.session_state.screen = "championship"
+            st.rerun()
+        return
+
+    # choose table name
+    table_name = "rules_f1_new" if target == "rules_f1" else "rules_mgp_new"
+    st.title("Edit rules — " + ("F1" if target == "rules_f1" else "MotoGP"))
+
+    # fetch current rules rows for this league
+    try:
+        rows_resp = supabase.from_(table_name).select("*").eq("league", league_id).order("id", {"ascending": True}).execute()
+        rules_rows = rows_resp.data or []
+    except Exception as e:
+        st.error(f"Error fetching rules: {e}")
+        rules_rows = []
+
+    st.info("Edit the values below. All fields except the two distributions must be numeric. " +
+            "Distributions must be numeric arrays (e.g. [25,18,15,...]) of max length 22.")
+
+    # define special multi-value fields (accept arrays)
+    MULTI_FIELDS = {
+        "Grand Prix points distribution",
+        "Sprint Race points distribution"
+    }
+
+    # Build UI inside a form to batch validate and submit
+    form = st.form(key=f"edit_rules_form_{table_name}")
+    inputs = []
+    # preserve order: iterate rules_rows
+    for i, r in enumerate(rules_rows):
+        rule_label = str(r.get("rule") or r.get("name") or f"rule_{i}")
+        raw_value = r.get("value")
+        # try to detect if stored as JSON/list
+        if isinstance(raw_value, (list, tuple)):
+            current_value = raw_value
+        else:
+            # try parse JSON or Python-literal if string
+            if isinstance(raw_value, str):
+                s = raw_value.strip()
+                try:
+                    parsed = json.loads(s)
+                    current_value = parsed
+                except Exception:
+                    try:
+                        parsed = ast.literal_eval(s)
+                        current_value = parsed
+                    except Exception:
+                        current_value = s
+            else:
+                current_value = raw_value
+
+        key_base = f"editrules_{table_name}_{i}"
+        if rule_label in MULTI_FIELDS:
+            # show text area with JSON representation of list
+            if isinstance(current_value, (list, tuple)):
+                prefill = json.dumps(current_value)
+            else:
+                # if it's a plain number or string, show as single-element list string as reminder
+                prefill = json.dumps(current_value) if not (isinstance(current_value, str) and current_value == "") else "[]"
+
+            form.markdown(f"**{rule_label}**")
+            val = form.text_area(f"Values (JSON array) — max length 22", value=prefill, key=key_base + "_multi", help="Insert a JSON array of numbers, e.g. [25,18,15,...]")
+            inputs.append({
+                "id": r.get("id"),
+                "rule": rule_label,
+                "type": "multi",
+                "raw": val,
+                "orig": r
+            })
+        else:
+            # numeric single value: try to get float default
+            default_num = None
+            if isinstance(current_value, (int, float)):
+                default_num = float(current_value)
+            else:
+                # try to parse numeric from str
+                try:
+                    default_num = float(str(current_value))
+                except Exception:
+                    default_num = 0.0
+            form.markdown(f"**{rule_label}**")
+            # use number_input to force numeric input; allow floats
+            val = form.number_input(f"{rule_label} (numeric)", value=default_num, key=key_base + "_num", format="%.6f")
+            inputs.append({
+                "id": r.get("id"),
+                "rule": rule_label,
+                "type": "numeric",
+                "raw": val,
+                "orig": r
+            })
+
+    # Add buttons
+    colc1, colc2 = form.columns([1, 1])
+    with colc1:
+        cancel = form.form_submit_button("Cancel")
+    with colc2:
+        confirm = form.form_submit_button("Confirm changes")
+
+    # Handle Cancel
+    if cancel:
+        # restore to rules display screen
+        st.session_state.screen = target  # e.g. "rules_f1" or "rules_mgp"
+        # refresh rules_data from DB
+        try:
+            new_rules = supabase.from_(table_name).select("*").eq("league", league_id).execute().data or []
+            st.session_state["rules_data"] = new_rules
+        except Exception:
+            pass
+        st.rerun()
+        return
+
+    # Handle Confirm
+    if confirm:
+        # Validation loop
+        errors = []
+        updates = []  # tuples (id_or_None, payload_dict)
+        for item in inputs:
+            rid = item["id"]
+            rule_name = item["rule"]
+            if item["type"] == "numeric":
+                raw_val = item["raw"]
+                # raw_val comes as float from number_input
+                # accept int or float; store as int if no fractional part
+                try:
+                    if float(raw_val).is_integer():
+                        store_val = int(raw_val)
+                    else:
+                        store_val = float(raw_val)
+                except Exception:
+                    errors.append(f"Value for '{rule_name}' is not numeric.")
+                    continue
+                payload = {"rule": rule_name, "value": store_val, "league": league_id}
+                updates.append((rid, payload))
+            else:
+                # multi: parse text to list of numbers
+                txt = item["raw"]
+                if txt is None or str(txt).strip() == "":
+                    parsed_list = []
+                else:
+                    try:
+                        # allow JSON or python literal
+                        try:
+                            parsed = json.loads(txt)
+                        except Exception:
+                            parsed = ast.literal_eval(txt)
+                        if not isinstance(parsed, (list, tuple)):
+                            raise ValueError("Must be a list/array")
+                        # convert elements to numbers
+                        parsed_list = []
+                        for idx_e, e in enumerate(parsed):
+                            if isinstance(e, (int, float)):
+                                parsed_list.append(e)
+                            else:
+                                # try parse numeric from string
+                                try:
+                                    n = float(str(e))
+                                    if n.is_integer():
+                                        parsed_list.append(int(n))
+                                    else:
+                                        parsed_list.append(n)
+                                except Exception:
+                                    raise ValueError(f"Element #{idx_e} of '{rule_name}' is not numeric: {e}")
+                    except Exception as ex:
+                        errors.append(f"Invalid array for '{rule_name}': {ex}")
+                        continue
+
+                if len(parsed_list) > 22:
+                    errors.append(f"Array for '{rule_name}' too long ({len(parsed_list)} > 22).")
+                    continue
+                payload = {"rule": rule_name, "value": parsed_list, "league": league_id}
+                updates.append((rid, payload))
+
+        if errors:
+            for e in errors:
+                st.error(e)
+            st.warning("Fix errors before confirming.")
+            return
+
+        # Perform DB updates/inserts
+        failed = []
+        succeeded = []
+        for rid, payload in updates:
+            try:
+                if rid:
+                    # update existing row
+                    resp_upd = supabase.from_(table_name).update(payload).eq("id", rid).execute()
+                    if getattr(resp_upd, "error", None):
+                        failed.append((rid, getattr(resp_upd, "error")))
+                    else:
+                        succeeded.append(rid)
+                else:
+                    # insert new row
+                    ins = supabase.from_(table_name).insert([payload]).execute()
+                    if getattr(ins, "error", None):
+                        failed.append((None, getattr(ins, "error")))
+                    else:
+                        succeeded.append(ins.data or [])
+            except Exception as exc:
+                failed.append((rid, str(exc)))
+
+        if failed:
+            st.error(f"Some updates failed: {failed}")
+            # still try to reload and return
+        else:
+            st.success("Rules updated successfully.")
+
+        # refresh rules data in session and go back to view
+        try:
+            refreshed = supabase.from_(table_name).select("*").eq("league", league_id).execute().data or []
+            st.session_state["rules_data"] = refreshed
+        except Exception:
+            pass
+
+        st.session_state.screen = target  # back to rules view (rules_f1 / rules_mgp)
+        st.rerun()
+
             
