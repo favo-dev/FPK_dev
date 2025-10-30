@@ -27,6 +27,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 def show_racer_screen(user):
     league_id = user["league"]
+    st.write(league_id)
     pilot = st.session_state.get("selected_pilot") or st.session_state.get("selected_driver")
     st.markdown("""
     <style>
@@ -72,7 +73,8 @@ def show_racer_screen(user):
             resp = supabase.from_("league_f1_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute()
             rows = resp.data or []
             this_pilot_data = rows[0] if rows else {}
-        elif (category or "").upper().startswith("MOTO") or (category or "").upper().startswith("MGP"):
+            st.write(this_pilot_data)
+        elif (category or "").upper().startswith("MOTO") or (category or "").upper().startswith("MGP") or (category or "").upper().startswith("Moto"):
             resp = supabase.from_("league_mgp_stats").eq("league_id", league_id).eq("player_id", pid).limit(1).execute()
             rows = resp.data or []
             this_pilot_data = rows[0] if rows else {}
