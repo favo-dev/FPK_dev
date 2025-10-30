@@ -210,7 +210,7 @@ def edit_rules_screen():
 
     # fetch current rules rows for this league
     try:
-        rows_resp = supabase.from_(table_name).select("*").eq("league", league_id).order("id", {"ascending": True}).execute()
+        rows_resp = supabase.from_(table_name).select("*").eq("league", league_id).execute()
         rules_rows = rows_resp.data or []
     except Exception as e:
         st.error(f"Error fetching rules: {e}")
