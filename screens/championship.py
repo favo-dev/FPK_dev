@@ -216,6 +216,9 @@ def edit_rules_screen():
         st.error(f"Error fetching rules: {e}")
         rules_rows = []
 
+    st.info("Edit the values below. All fields except the two distributions must be numeric. " +
+            "Distributions must be numeric arrays (e.g. [25,18,15,...]) of max length 22.")
+
     # define special multi-value fields (accept arrays)
     MULTI_FIELDS = {
         "Grand Prix points distribution",
@@ -279,7 +282,7 @@ def edit_rules_screen():
                     default_num = 0.0
             form.markdown(f"**{rule_label}**")
             # use number_input to force numeric input; allow floats
-            val = form.number_input(value=default_num, key=key_base + "_num", format="%.2f")
+            val = form.number_input(f"{rule_label} (numeric)", value=default_num, key=key_base + "_num", format="%.6f")
             inputs.append({
                 "id": r.get("id"),
                 "rule": rule_label,
