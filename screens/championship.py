@@ -216,9 +216,6 @@ def edit_rules_screen():
         st.error(f"Error fetching rules: {e}")
         rules_rows = []
 
-    st.info("Edit the values below. All fields except the two distributions must be numeric. " +
-            "Distributions must be numeric arrays (e.g. [25,18,15,...]) of max length 22.")
-
     # define special multi-value fields (accept arrays)
     MULTI_FIELDS = {
         "Grand Prix points distribution",
@@ -281,8 +278,15 @@ def edit_rules_screen():
                 except Exception:
                     default_num = 0.0
             form.markdown(f"**{rule_label}**")
-            # use number_input to force numeric input; allow floats
-            val = form.number_input(f"{rule_label} (numeric)", value=default_num, key=key_base + "_num", format="%.6f")
+            # show number_input WITHOUT repeating the label; restrict to 2 decimals in the UI
+            # key stays unique per row
+            val = form.number_input(
+                "",  # label omitted because already shown above
+                value=default_num,
+                key=key_base + "_num",
+                format="%.2f",
+                step=0.01
+            )
             inputs.append({
                 "id": r.get("id"),
                 "rule": rule_label,
@@ -321,13 +325,14 @@ def edit_rules_screen():
             rule_name = item["rule"]
             if item["type"] == "numeric":
                 raw_val = item["raw"]
-                # raw_val comes as float from number_input
-                # accept int or float; store as int if no fractional part
+                # raw_val comes from number_input; round to 2 decimals to avoid float noise
                 try:
-                    if float(raw_val).is_integer():
-                        store_val = int(raw_val)
+                    rounded = round(float(raw_val), 2)
+                    # store as int if integer after rounding
+                    if float(rounded).is_integer():
+                        store_val = int(rounded)
                     else:
-                        store_val = float(raw_val)
+                        store_val = rounded
                 except Exception:
                     errors.append(f"Value for '{rule_name}' is not numeric.")
                     continue
@@ -347,21 +352,23 @@ def edit_rules_screen():
                             parsed = ast.literal_eval(txt)
                         if not isinstance(parsed, (list, tuple)):
                             raise ValueError("Must be a list/array")
-                        # convert elements to numbers
+                        # convert elements to numbers and round to 2 decimals
                         parsed_list = []
                         for idx_e, e in enumerate(parsed):
                             if isinstance(e, (int, float)):
-                                parsed_list.append(e)
+                                n = float(e)
                             else:
                                 # try parse numeric from string
                                 try:
                                     n = float(str(e))
-                                    if n.is_integer():
-                                        parsed_list.append(int(n))
-                                    else:
-                                        parsed_list.append(n)
                                 except Exception:
                                     raise ValueError(f"Element #{idx_e} of '{rule_name}' is not numeric: {e}")
+                            # round to 2 decimals
+                            rn = round(n, 2)
+                            if float(rn).is_integer():
+                                parsed_list.append(int(rn))
+                            else:
+                                parsed_list.append(rn)
                     except Exception as ex:
                         errors.append(f"Invalid array for '{rule_name}': {ex}")
                         continue
@@ -415,5 +422,3 @@ def edit_rules_screen():
 
         st.session_state.screen = target  # back to rules view (rules_f1 / rules_mgp)
         st.rerun()
-
-            
