@@ -104,7 +104,7 @@ def roll_screen(user):
     """
     Mostra la Roll of Honor per la league di `user`.
     Requisito: prendi TUTTE le righe da roll_of_honor_new e teams dove league == user['league'].
-    Il resto del rendering riproduce il comportamento originale.
+    Mappatura id->name ora associa le chiavi UUID/uuid (dalla tabella teams) al loro name.
     """
     # il set_page_config dovrebbe essere chiamato una sola volta; proviamo tranquillamente
     try:
@@ -123,7 +123,6 @@ def roll_screen(user):
     try:
         resp = supabase.from_("roll_of_honor_new").select("*").eq("league", str(league_id)).execute()
         roll_data = resp.data or []
-        st.write(roll_data)
     except Exception as e:
         st.error(f"Errore fetch roll_of_honor_new: {e}")
         roll_data = []
@@ -131,7 +130,6 @@ def roll_screen(user):
     try:
         resp2 = supabase.from_("teams").select("*").eq("league", str(league_id)).execute()
         teams = resp2.data or []
-        st.write(teams)
     except Exception as e:
         st.error(f"Errore fetch teams: {e}")
         teams = []
@@ -141,44 +139,61 @@ def roll_screen(user):
         st.info("Nessuna voce trovata in 'roll_of_honor_new' per questa league.")
         return
 
-    # Costruiamo lookup delle teams: proviamo più chiavi possibili
+    # Costruiamo lookup delle teams: proviamo più chiavi possibili (ora includiamo UUID/uuid)
     team_info_by_id = {}
     team_info_by_name = {}
+    # mappatura diretta id->name (utile se vuoi usare la mappa id->name)
+    id_to_name = {}
+
     for t in teams:
-        # possibili campi id
         possible_ids = []
-        for key in ("ID", "id", "team_id", "who"):
+        # includiamo esplicitamente UUID/uuid oltre ai campi comuni
+        for key in ("UUID", "uuid", "ID", "id", "team_id", "who"):
             if key in t and t.get(key) is not None:
                 possible_ids.append(str(t.get(key)))
         # anche il nome come id alternativo
         if t.get("name"):
             possible_ids.append(str(t.get("name")))
             team_info_by_name[str(t.get("name"))] = t
-        # popola map id->team
+        # popola map id->team e id->name
         for pid in possible_ids:
             team_info_by_id[pid] = t
+            # salva anche la mappatura id->name (sovrascrive se doppioni, ma è ok)
+            id_to_name[pid] = t.get("name")
 
-    # funzione per risolvere riferimento a team (entry può contenere id, name o altro)
+    # funzione per risolvere riferimento a team (entry può contenere id, UUID, name o altro)
     def resolve_team(ref):
         if ref is None:
             return None
         sref = str(ref)
-        # match diretto
+        # match diretto nelle mappe
         if sref in team_info_by_id:
             return team_info_by_id[sref]
         if sref in team_info_by_name:
             return team_info_by_name[sref]
-        # match coerente provando a confrontare stringhe
+        # match coerente provando a confrontare stringhe/int-like
         for k, v in team_info_by_id.items():
             if k == sref:
                 return v
-            # anche confronto "int-like"
             try:
                 if int(k) == int(sref):
                     return v
             except Exception:
                 pass
         # non trovato
+        return None
+
+    # utile helper per ottenere name direttamente da un riferimento (usa id_to_name)
+    def resolve_name(ref):
+        if ref is None:
+            return None
+        sref = str(ref)
+        if sref in id_to_name:
+            return id_to_name[sref]
+        # fallback: try resolve_team and return name
+        t = resolve_team(ref)
+        if t:
+            return t.get("name")
         return None
 
     # raccolta anni e ordinamento desc (preserviamo comportamento originale: selectbox)
@@ -234,9 +249,10 @@ def roll_screen(user):
             # se l'URL scaduto o non valido, non rompiamo l'app
             pass
 
-    # FF1 column
+    # FF1 column: risolvi usando resolve_team che ora considera UUID/uuid
     with col_ff1:
         team_ref = entry.get("ff1")
+        # Se ff1 è un id che deve essere mappato a teams.UUID, resolve_team lo troverà grazie a UUID nella mappa
         team = resolve_team(team_ref)
         if team:
             st.markdown(render_color_box(team.get("main color"), team.get("second color")), unsafe_allow_html=True)
@@ -245,7 +261,14 @@ def roll_screen(user):
             drivers = safe_parse_drivers(entry.get("ff1_team", []))
             st.markdown(render_driver_box(drivers, "Drivers"), unsafe_allow_html=True)
         else:
-            st.warning(f"Team FF1 non risolto per riferimento: {team_ref}")
+            # proviamo a risolvere solo il name direttamente (se ad es. id_to_name è popolata)
+            name_guess = resolve_name(team_ref)
+            if name_guess:
+                st.markdown(render_section_header("FF1", name_guess), unsafe_allow_html=True)
+                drivers = safe_parse_drivers(entry.get("ff1_team", []))
+                st.markdown(render_driver_box(drivers, "Drivers"), unsafe_allow_html=True)
+            else:
+                st.warning(f"Team FF1 non risolto per riferimento: {team_ref}")
 
     # FPK column
     with col_fpk:
@@ -258,7 +281,13 @@ def roll_screen(user):
             drivers = safe_parse_drivers(entry.get("fpk_team", []))
             st.markdown(render_driver_box(drivers, "Pilots"), unsafe_allow_html=True)
         else:
-            st.warning(f"Team FPK non risolto per riferimento: {team_ref}")
+            name_guess = resolve_name(team_ref)
+            if name_guess:
+                st.markdown(render_section_header("FPK", name_guess), unsafe_allow_html=True)
+                drivers = safe_parse_drivers(entry.get("fpk_team", []))
+                st.markdown(render_driver_box(drivers, "Pilots"), unsafe_allow_html=True)
+            else:
+                st.warning(f"Team FPK non risolto per riferimento: {team_ref}")
 
     # FMGP column
     with col_fmgp:
@@ -271,7 +300,13 @@ def roll_screen(user):
             drivers = safe_parse_drivers(entry.get("fmgp_team", []))
             st.markdown(render_driver_box(drivers, "Riders"), unsafe_allow_html=True)
         else:
-            st.warning(f"Team FMGP non risolto per riferimento: {team_ref}")
+            name_guess = resolve_name(team_ref)
+            if name_guess:
+                st.markdown(render_section_header("FMGP", name_guess), unsafe_allow_html=True)
+                drivers = safe_parse_drivers(entry.get("fmgp_team", []))
+                st.markdown(render_driver_box(drivers, "Riders"), unsafe_allow_html=True)
+            else:
+                st.warning(f"Team FMGP non risolto per riferimento: {team_ref}")
 
     # Right crown
     with colR:
@@ -281,5 +316,5 @@ def roll_screen(user):
         except Exception:
             pass
 
-    # Fine: (se vuoi, possiamo mostrare un footer con info sulle voci)
+    # Footer informativo
     st.caption(f"Mostrando anno: {escape(anno_scelto)} — voci totali: {len(roll_data)}")
