@@ -123,6 +123,7 @@ def roll_screen(user):
     try:
         resp = supabase.from_("roll_of_honor_new").select("*").eq("league", str(league_id)).execute()
         roll_data = resp.data or []
+        st.write(roll_data)
     except Exception as e:
         st.error(f"Errore fetch roll_of_honor_new: {e}")
         roll_data = []
@@ -130,6 +131,7 @@ def roll_screen(user):
     try:
         resp2 = supabase.from_("teams").select("*").eq("league", str(league_id)).execute()
         teams = resp2.data or []
+        st.write(teams)
     except Exception as e:
         st.error(f"Errore fetch teams: {e}")
         teams = []
