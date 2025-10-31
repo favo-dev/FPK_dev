@@ -226,6 +226,7 @@ def edit_rules_screen():
     form = st.form(key=f"edit_rules_form_{table_name}")
     inputs = []
     # preserve order: iterate rules_rows
+    total = len(rules_rows)
     for i, r in enumerate(rules_rows):
         rule_label = str(r.get("rule") or r.get("name") or f"rule_{i}")
         raw_value = r.get("value")
@@ -294,6 +295,10 @@ def edit_rules_screen():
                 "raw": val,
                 "orig": r
             })
+
+        # inserisci un divisore tra questo campo e il successivo, tranne dopo l'ultimo
+        if i < total - 1:
+            form.markdown("<hr style='border:0; height:1px; background:#444; margin:12px 0;'/>", unsafe_allow_html=True)
 
     # Add buttons
     colc1, colc2 = form.columns([1, 1])
@@ -422,3 +427,4 @@ def edit_rules_screen():
 
         st.session_state.screen = target  # back to rules view (rules_f1 / rules_mgp)
         st.rerun()
+
