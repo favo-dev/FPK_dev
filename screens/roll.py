@@ -17,8 +17,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 def roll_screen(user):
     st.set_page_config(layout="wide") 
 
-    data = supabase.from_("roll_of_honor").select("*").execute().data or []
-    teams = supabase.from_("class").select("*").execute().data or []
+    data = supabase.from_("roll_of_honor_new").select("*").execute().data or []
+    teams = supabase.from_("teams").select("*").execute().data or []
 
     team_info = {team["ID"]: team for team in teams}
 
