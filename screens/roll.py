@@ -268,7 +268,7 @@ def roll_screen(user):
                 drivers = safe_parse_drivers(entry.get("ff1_team", []))
                 st.markdown(render_driver_box(drivers, "Drivers"), unsafe_allow_html=True)
             else:
-                st.warning(f"Team FF1 non risolto per riferimento: {team_ref}")
+                st.warning("No data available")
 
     # FPK column
     with col_fpk:
@@ -287,7 +287,7 @@ def roll_screen(user):
                 drivers = safe_parse_drivers(entry.get("fpk_team", []))
                 st.markdown(render_driver_box(drivers, "Pilots"), unsafe_allow_html=True)
             else:
-                st.warning(f"Team FPK non risolto per riferimento: {team_ref}")
+                st.warning("No data available")
 
     # FMGP column
     with col_fmgp:
@@ -306,7 +306,7 @@ def roll_screen(user):
                 drivers = safe_parse_drivers(entry.get("fmgp_team", []))
                 st.markdown(render_driver_box(drivers, "Riders"), unsafe_allow_html=True)
             else:
-                st.warning(f"Team FMGP non risolto per riferimento: {team_ref}")
+                st.warning("No data available")
 
     # Right crown
     with colR:
@@ -316,5 +316,3 @@ def roll_screen(user):
         except Exception:
             pass
 
-    # Footer informativo
-    st.caption(f"Mostrando anno: {escape(anno_scelto)} — voci totali: {len(roll_data)}")
