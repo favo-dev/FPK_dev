@@ -258,7 +258,7 @@ def edit_rules_screen():
                 prefill = json.dumps(current_value) if not (isinstance(current_value, str) and current_value == "") else "[]"
 
             form.markdown(f"**{rule_label}**")
-            val = form.text_area(value=prefill, key=key_base + "_multi")
+            val = form.text_area(f"Values (JSON array) — max length 22", value=prefill, key=key_base + "_multi", help="Insert a JSON array of numbers, e.g. [25,18,15,...]")
             inputs.append({
                 "id": r.get("id"),
                 "rule": rule_label,
