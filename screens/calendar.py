@@ -29,8 +29,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 # --------------------- CALENDAR SCREEN ----------------------------------------------------
 
 def calendar_screen(user):
-    races_f1 = supabase.from_("championship_f1").select("*").execute().data or []
-    races_mgp = supabase.from_("championship_mgp").select("*").execute().data or []
+    races_f1 = supabase.from_("championship_f1_new").select("*").execute().data or []
+    races_mgp = supabase.from_("championship_mgp_new").select("*").execute().data or []
 
     all_races = []
     for race in races_f1:
