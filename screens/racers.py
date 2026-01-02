@@ -19,6 +19,7 @@ def racers_screen(user):
 
     st.title("Racers")
 
+    # handle query params navigation verso dettagli pilota
     q = st.query_params
     if "pilot" in q:
         sel_pilot = q.get("pilot", [""])[0]
@@ -30,10 +31,15 @@ def racers_screen(user):
             st.session_state["screen"] = "pilot_details"
             st.rerun()
 
+    # --- fetch base tables
     teams = supabase.from_("class").select("*").execute().data or []
-    racers_f1 = supabase.from_("racers_f1").select("*").execute().data or []
-    racers_mgp = supabase.from_("racers_mgp").select("*").execute().data or []
+    racers_f1 = supabase.from_("racers_f1_new").select("*").execute().data or []
+    racers_mgp = supabase.from_("racers_mgp_new").select("*").execute().data or []
 
+    # league id dell'utente (per fetch delle stats)
+    league_id = str(user.get("league")) if isinstance(user, dict) and user.get("league") is not None else None
+
+    # --- costruisci mapping team FPK per pilota
     pilot_to_fpk = {}
     for t in teams:
         team_name = t.get("name") or t.get("Name") or ""
@@ -41,12 +47,14 @@ def racers_screen(user):
             if not key:
                 continue
             kl = key.lower()
+            # riconosciamo campi che contengono piloti/driver lists (adattalo se necessario)
             if kl in ("f1", "f1drivers", "drivers_f1", "drivers") or "motogp" in kl or kl in ("mgp", "moto", "moto_gp"):
                 members = parse_list_field(val)
                 for m in members:
                     k = normalize_fullname_for_keys(m)
                     pilot_to_fpk[k.lower()] = team_name
 
+    # --- unisci tutti i racers in un'unica lista e aggiungi _category
     all_racers = []
     for r in racers_f1:
         r["_category"] = "F1"
@@ -55,25 +63,69 @@ def racers_screen(user):
         r["_category"] = "MotoGP"
         all_racers.append(r)
 
+    # --- prepara liste di player_id per fetch bulk delle stats per categoria
+    f1_ids = [str(r.get("ID") or r.get("id") or r.get("name") or "").strip() for r in racers_f1 if (r.get("ID") or r.get("id") or r.get("name"))]
+    mgp_ids = [str(r.get("ID") or r.get("id") or r.get("name") or "").strip() for r in racers_mgp if (r.get("ID") or r.get("id") or r.get("name"))]
+
+    # --- fetch bulk stats per categoria (mapping player_id -> stats row)
+    stats_f1_map = {}
+    stats_mgp_map = {}
+    try:
+        if league_id and f1_ids:
+            resp = (
+                supabase
+                .from_("league_f1_stats")
+                .select("*")
+                .eq("league_id", league_id)
+                .in_("player_id", f1_ids)
+                .execute()
+            )
+            for r in (resp.data or []):
+                key = str(r.get("player_id") or "").strip()
+                stats_f1_map[key] = r
+    except Exception:
+        stats_f1_map = {}
+
+    try:
+        if league_id and mgp_ids:
+            resp = (
+                supabase
+                .from_("league_mgp_stats")
+                .select("*")
+                .eq("league_id", league_id)
+                .in_("player_id", mgp_ids)
+                .execute()
+            )
+            for r in (resp.data or []):
+                key = str(r.get("player_id") or "").strip()
+                stats_mgp_map[key] = r
+    except Exception:
+        stats_mgp_map = {}
+
+    # helper per convertire valori numerici/assenti
     def parse_value(v):
         if v is None:
             return 0
         try:
             return float(str(v).replace(",", "."))
-        except:
+        except Exception:
             return 0
 
+    # --- prepara le righe da visualizzare
     rows = []
     for r in all_racers:
+        # identifica l'id (usato come player_id nelle stats)
         rid = r.get("ID") or r.get("name") or r.get("id") or ""
         rid_str = str(rid).strip()
         cat = r.get("_category", "")
 
+        # colori
         main_raw = r.get("main_color") or r.get("main color") or r.get("mainColor")
         second_raw = r.get("second_color") or r.get("second color") or r.get("secondColor")
         main_hex = safe_rgb_to_hex(main_raw)
         second_hex = safe_rgb_to_hex(second_raw or main_raw)
 
+        # nome + pill colore
         name_html = (
             '<div style="display:flex;align-items:center;gap:10px;">'
             f'<span style="display:inline-block;width:20px;height:20px;'
@@ -83,10 +135,32 @@ def racers_screen(user):
             '</div>'
         )
 
+        # team real / FPK
         real_team = r.get("real_team") or r.get("real team") or ""
         value_int = int(round(parse_value(r.get("Value") or r.get("value") or 0)))
         fpk_key = normalize_fullname_for_keys(rid_str)
         fpk_team = pilot_to_fpk.get(fpk_key.lower(), "")
+
+        # --- prendi stats dalla mappa corretta in base alla categoria
+        stats_map = stats_f1_map if cat == "F1" else stats_mgp_map
+        s = stats_map.get(rid_str, {}) if stats_map is not None else {}
+
+        # campi di stats comuni (fallback a 0)
+        convocations = int(parse_value(s.get("convocations"))) if s.get("convocations") is not None else 0
+        dnf = int(parse_value(s.get("DNF") or s.get("dnf"))) if (s.get("DNF") is not None or s.get("dnf") is not None) else 0
+        wins = int(parse_value(s.get("wins"))) if s.get("wins") is not None else 0
+        sprint_wins = int(parse_value(s.get("sprint_wins"))) if s.get("sprint_wins") is not None else 0
+        poles = int(parse_value(s.get("poles"))) if s.get("poles") is not None else 0
+        sprint_poles = int(parse_value(s.get("sprint_poles"))) if s.get("sprint_poles") is not None else 0
+        podiums = int(parse_value(s.get("podiums"))) if s.get("podiums") is not None else 0
+        sub = int(parse_value(s.get("sub"))) if s.get("sub") is not None else 0
+        historical_wins = int(parse_value(s.get("historical_wins"))) if s.get("historical_wins") is not None else 0
+        historical_poles = int(parse_value(s.get("historical_poles"))) if s.get("historical_poles") is not None else 0
+        historical_sprint_wins = int(parse_value(s.get("historical_sprint_wins"))) if s.get("historical_sprint_wins") is not None else 0
+
+        # crea stringa compatta di stats per visualizzazione sotto il nome
+        stats_line = f"Wins: {wins} | Poles: {poles} | Podiums: {podiums} | DNF: {dnf}"
+        # se vuoi mostrare altro aggiungi qui
 
         rows.append({
             "Pilota_html": name_html,
@@ -94,20 +168,39 @@ def racers_screen(user):
             "Categoria": cat,
             "Team reale": _html.escape(real_team),
             "Team FPK": _html.escape(fpk_team),
-            "Valore": value_int
+            "Valore": value_int,
+            # includi stats raw per eventuali usi successivi
+            "stats": {
+                "convocations": convocations,
+                "DNF": dnf,
+                "wins": wins,
+                "sprint_wins": sprint_wins,
+                "poles": poles,
+                "sprint_poles": sprint_poles,
+                "podiums": podiums,
+                "sub": sub,
+                "historical_wins": historical_wins,
+                "historical_poles": historical_poles,
+                "historical_sprint_wins": historical_sprint_wins
+            },
+            "stats_line": stats_line
         })
 
+    # ordina per Valore (come prima)
     rows_sorted = sorted(rows, key=lambda x: x["Valore"], reverse=True)
 
+    # --- Filters UI (uguale a prima) ---
     with st.expander("Filters", expanded=False):
         search_name = st.text_input("Search:")
         category_filter = st.selectbox("Category:", options=["All", "F1", "MotoGP"], index=0)
         min_value = st.number_input("Minimum value:", min_value=0, value=0, step=1)
 
+    # compatibilità con il comportamento esistente: usa i valori locali se presenti
     search_name = locals().get("search_name", "") or ""
     category_filter = locals().get("category_filter", "All") or "All"
     min_value = locals().get("min_value", 0) or 0
 
+    # --- filtra le righe
     filtered_rows = []
     for r in rows_sorted:
         if search_name and search_name.lower() not in r["Pilota_raw"].lower():
@@ -118,6 +211,7 @@ def racers_screen(user):
             continue
         filtered_rows.append(r)
 
+    # --- stile e rendering (uguale a prima), ma mostriamo anche la stats_line sotto il nome
     st.markdown(
         """
     <style>
@@ -128,6 +222,7 @@ def racers_screen(user):
       .row-box .col-team { flex: 3; color: #ddd; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
       .row-box .col-fpk { flex: 3; color: #bbb; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
       .row-box .col-value { flex: 1; min-width: 100px; text-align: right; font-weight: 600; color: #fff; margin-right: 8px; }
+      .stats-line { color: #aaa; font-size: 12px; margin-top: 6px; }
       div.stButton > button { padding: 6px 10px !important; border-radius: 14px !important; min-width: 80px; white-space: nowrap; font-weight: 600; height: 32px; line-height: 16px; }
       .stButton { display: flex; align-items: center; justify-content: flex-end; height: 80px; }
       .no-results { color: #ddd; padding: 12px 0; }
@@ -158,10 +253,13 @@ def racers_screen(user):
         return
 
     for i, r in enumerate(filtered_rows):
+        # include stats_line sotto il nome
         row_html = (
             '<div class="row-box">'
             f'<div style="width:40px"></div>'
-            f'<div class="col-name" title="{_html.escape(r["Pilota_raw"])}">{r["Pilota_html"]}</div>'
+            f'<div class="col-name" title="{_html.escape(r["Pilota_raw"])}">{r["Pilota_html"]}'
+            f'<div class="stats-line">{_html.escape(r["stats_line"])}</div>'
+            f'</div>'
             f'<div class="col-team" title="{_html.escape(r["Team reale"])}">{r["Team reale"]}</div>'
             f'<div class="col-fpk" title="{_html.escape(r["Team FPK"])}">{r["Team FPK"]}</div>'
             f'<div class="col-value">{int(r["Valore"]):,}</div>'
