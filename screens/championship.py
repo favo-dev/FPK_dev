@@ -120,6 +120,90 @@ def user_is_president(user_uuid: str, league_id: str) -> bool:
         # non bloccare l'UI in caso di problemi con la fetch
         return False
 
+def compute_results_menu(league_id: str):
+    st.subheader("Compute results")
+
+    # ---- Categoria ----
+    category = st.selectbox(
+        "Select category",
+        ["F1", "MotoGP"],
+        index=0 if st.session_state.compute_category is None else ["F1", "MotoGP"].index(st.session_state.compute_category)
+    )
+    st.session_state.compute_category = category
+
+    # ---- Tabella championship corretta ----
+    table_name = "championship_f1_new" if category == "F1" else "championship_mgp_new"
+
+    # ---- Fetch gare ----
+    try:
+        races_resp = (
+            supabase
+            .from_(table_name)
+            .select("ID")
+            .eq("league", league_id)
+            .order("ID")
+            .execute()
+        )
+        races = [r["ID"] for r in (races_resp.data or [])]
+    except Exception as e:
+        st.error(f"Error loading races: {e}")
+        return
+
+    if not races:
+        st.warning("No races available for this category.")
+        return
+
+    # ---- Selezione gara ----
+    race_id = st.selectbox(
+        "Select race",
+        races,
+        index=0 if st.session_state.compute_race_id is None else max(0, races.index(st.session_state.compute_race_id))
+    )
+    st.session_state.compute_race_id = race_id
+
+    # ---- Azioni ----
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("Cancel", key="compute_cancel"):
+            st.session_state.compute_results_open = False
+            st.session_state.compute_category = None
+            st.session_state.compute_race_id = None
+            st.rerun()
+
+    with col2:
+        if st.button("Confirm compute", key="compute_confirm"):
+            run_compute_results(
+                league_id=league_id,
+                category=category,
+                race_id=race_id
+            )
+            st.success(f"Results computed for {category} – race {race_id}")
+            st.session_state.compute_results_open = False
+            st.rerun()
+            
+def run_compute_results(league_id: str, category: str, race_id: str):
+    """
+    Punto di ingresso unico per il calcolo risultati.
+    Qui puoi:
+    - chiamare una RPC Postgres
+    - oppure fare calcoli Python + update su Supabase
+    """
+    try:
+        # ESEMPIO RPC (consigliato se hai logica DB):
+        # supabase.rpc(
+        #     "compute_results",
+        #     {
+        #         "league_id": league_id,
+        #         "category": category.lower(),
+        #         "race_id": race_id
+        #     }
+        # ).execute()
+
+        # Placeholder
+        print(f"Computing {category} results for race {race_id} (league {league_id})")
+
+    except Exception as e:
+        st.error(f"Compute failed: {e}")
 
 def compute_results_for_league(league_id: str):
     """
@@ -199,29 +283,24 @@ def championship_screen(user):
             st.session_state.screen = "rules_f1"
             st.session_state.rules_data = rules_f1
             st.rerun()
+
     with col2:
         if st.button("Rules - MotoGP", key="rules_mgp_button"):
             st.session_state.screen = "rules_mgp"
             st.session_state.rules_data = rules_mgp
             st.rerun()
-            
-    st.title("Results")
-    # Bottone "Compute results" visibile solo al presidente della league
+
+# -------------------- COMPUTE RESULTS --------------------
+
     if is_president:
-        st.markdown("")  
+        st.markdown("")
         if st.button("Compute results", key="compute_results_btn"):
-            result = compute_results_for_league(league_id)
-            if isinstance(result, dict) and result.get("error"):
-                st.error(f"Compute failed: {result.get('error')}")
-            else:
-                st.success("Compute triggered.")
-                try:
-                    data = getattr(result, "data", None) or (result.get("data") if isinstance(result, dict) else None)
-                    if data:
-                        st.write(data)
-                except Exception:
-                    pass
+            st.session_state.compute_results_open = True
             st.rerun()
+
+    if is_president and st.session_state.compute_results_open:
+        compute_results_menu(league_id)
+
 
 
 def edit_rules_screen():
