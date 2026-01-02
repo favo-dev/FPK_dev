@@ -631,6 +631,34 @@ def league_screen(user):
                             st.error(f"Exception inserting penalty_new: {e}")
 
                         try:
+                            f1_points_row = {
+                                "prim_key": str(uuid.uuid4()),
+                                "id": user.get("UUID"),
+                                "league": league_id
+                            }
+                            row_ins = supabase.from_("points_per_race_f1").insert(f1_points_row).execute()
+                            if getattr(row_ins, "error", None):
+                                st.error(f"Error inserting into points_per_race_f1: {row_ins.error}")
+                            else:
+                                st.info("Inserted points_per_race_f1 row for league.")
+                        except Exception as e:
+                            st.error(f"Exception inserting points_per_race_f1: {e}")
+
+                         try:
+                            mgp_points_row = {
+                                "prim_key": str(uuid.uuid4()),
+                                "id": user.get("UUID"),
+                                "league": league_id
+                            }
+                            row_ins = supabase.from_("points_per_race_mgp").insert(mgp_points_row).execute()
+                            if getattr(row_ins, "error", None):
+                                st.error(f"Error inserting into points_per_race_mgp: {row_ins.error}")
+                            else:
+                                st.info("Inserted points_per_race_mgp row for league.")
+                        except Exception as e:
+                            st.error(f"Exception inserting points_per_race_mgp: {e}")
+
+                        try:
                             # prepara riga per calls_f1_new
                             call_row_f1 = {
                                 "id": str(uuid.uuid4()),
