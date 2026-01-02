@@ -1,19 +1,3 @@
-import html as _html
-from supabase import create_client
-import streamlit as st
-from logic.functions import parse_list_field, normalize_fullname_for_keys, safe_rgb_to_hex
-
-# -------------------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------------------
-
-# --------------------- SUPABASE CLIENT --------------------------------------
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-# --------------------- RACERS SCREEN ----------------------------------------------------
-
 def racers_screen(user):
     from urllib.parse import quote_plus
 
@@ -47,7 +31,6 @@ def racers_screen(user):
             if not key:
                 continue
             kl = key.lower()
-            # riconosciamo campi che contengono piloti/driver lists (adattalo se necessario)
             if kl in ("f1", "f1drivers", "drivers_f1", "drivers") or "motogp" in kl or kl in ("mgp", "moto", "moto_gp"):
                 members = parse_list_field(val)
                 for m in members:
@@ -114,7 +97,6 @@ def racers_screen(user):
     # --- prepara le righe da visualizzare
     rows = []
     for r in all_racers:
-        # identifica l'id (usato come player_id nelle stats)
         rid = r.get("ID") or r.get("name") or r.get("id") or ""
         rid_str = str(rid).strip()
         cat = r.get("_category", "")
@@ -141,24 +123,11 @@ def racers_screen(user):
         fpk_key = normalize_fullname_for_keys(rid_str)
         fpk_team = pilot_to_fpk.get(fpk_key.lower(), "")
 
-        # --- prendi stats dalla mappa corretta in base alla categoria
+        # prendi stats dalla mappa corretta in base alla categoria
         stats_map = stats_f1_map if cat == "F1" else stats_mgp_map
         s = stats_map.get(rid_str, {}) if stats_map is not None else {}
 
         # campi di stats comuni (fallback a 0)
-        convocations = int(parse_value(s.get("convocations"))) if s.get("convocations") is not None else 0
-        dnf = int(parse_value(s.get("DNF") or s.get("dnf"))) if (s.get("DNF") is not None or s.get("dnf") is not None) else 0
-        wins = int(parse_value(s.get("wins"))) if s.get("wins") is not None else 0
-        sprint_wins = int(parse_value(s.get("sprint_wins"))) if s.get("sprint_wins") is not None else 0
-        poles = int(parse_value(s.get("poles"))) if s.get("poles") is not None else 0
-        sprint_poles = int(parse_value(s.get("sprint_poles"))) if s.get("sprint_poles") is not None else 0
-        podiums = int(parse_value(s.get("podiums"))) if s.get("podiums") is not None else 0
-        sub = int(parse_value(s.get("sub"))) if s.get("sub") is not None else 0
-        historical_wins = int(parse_value(s.get("historical_wins"))) if s.get("historical_wins") is not None else 0
-        historical_poles = int(parse_value(s.get("historical_poles"))) if s.get("historical_poles") is not None else 0
-        historical_sprint_wins = int(parse_value(s.get("historical_sprint_wins"))) if s.get("historical_sprint_wins") is not None else 0
-
-
         rows.append({
             "Pilota_html": name_html,
             "Pilota_raw": rid_str,
@@ -166,32 +135,18 @@ def racers_screen(user):
             "Team reale": _html.escape(real_team),
             "Team FPK": _html.escape(fpk_team),
             "Valore": value_int,
-            # includi stats raw per eventuali usi successivi
-            "stats": {
-                "convocations": convocations,
-                "DNF": dnf,
-                "wins": wins,
-                "sprint_wins": sprint_wins,
-                "poles": poles,
-                "sprint_poles": sprint_poles,
-                "podiums": podiums,
-                "sub": sub,
-                "historical_wins": historical_wins,
-                "historical_poles": historical_poles,
-                "historical_sprint_wins": historical_sprint_wins
-            },
+            "stats": s,  # manteniamo solo per eventuali usi interni
         })
 
-    # ordina per Valore (come prima)
+    # ordina per Valore
     rows_sorted = sorted(rows, key=lambda x: x["Valore"], reverse=True)
 
-    # --- Filters UI (uguale a prima) ---
+    # --- Filters UI
     with st.expander("Filters", expanded=False):
         search_name = st.text_input("Search:")
         category_filter = st.selectbox("Category:", options=["All", "F1", "MotoGP"], index=0)
         min_value = st.number_input("Minimum value:", min_value=0, value=0, step=1)
 
-    # compatibilità con il comportamento esistente: usa i valori locali se presenti
     search_name = locals().get("search_name", "") or ""
     category_filter = locals().get("category_filter", "All") or "All"
     min_value = locals().get("min_value", 0) or 0
@@ -207,7 +162,7 @@ def racers_screen(user):
             continue
         filtered_rows.append(r)
 
-    # --- stile e rendering (uguale a prima), ma mostriamo anche la stats_line sotto il nome
+    # --- stile e rendering
     st.markdown(
         """
     <style>
@@ -218,7 +173,6 @@ def racers_screen(user):
       .row-box .col-team { flex: 3; color: #ddd; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
       .row-box .col-fpk { flex: 3; color: #bbb; overflow: visible; text-overflow: ellipsis; white-space: normal; line-height: 1.3; }
       .row-box .col-value { flex: 1; min-width: 100px; text-align: right; font-weight: 600; color: #fff; margin-right: 8px; }
-      .stats-line { color: #aaa; font-size: 12px; margin-top: 6px; }
       div.stButton > button { padding: 6px 10px !important; border-radius: 14px !important; min-width: 80px; white-space: nowrap; font-weight: 600; height: 32px; line-height: 16px; }
       .stButton { display: flex; align-items: center; justify-content: flex-end; height: 80px; }
       .no-results { color: #ddd; padding: 12px 0; }
@@ -249,13 +203,11 @@ def racers_screen(user):
         return
 
     for i, r in enumerate(filtered_rows):
-        # include stats_line sotto il nome
+        # riga senza stats_line
         row_html = (
             '<div class="row-box">'
             f'<div style="width:40px"></div>'
-            f'<div class="col-name" title="{_html.escape(r["Pilota_raw"])}">{r["Pilota_html"]}'
-            f'<div class="stats-line">{_html.escape(r["stats_line"])}</div>'
-            f'</div>'
+            f'<div class="col-name" title="{_html.escape(r["Pilota_raw"])}">{r["Pilota_html"]}</div>'
             f'<div class="col-team" title="{_html.escape(r["Team reale"])}">{r["Team reale"]}</div>'
             f'<div class="col-fpk" title="{_html.escape(r["Team FPK"])}">{r["Team FPK"]}</div>'
             f'<div class="col-value">{int(r["Valore"]):,}</div>'
