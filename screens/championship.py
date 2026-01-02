@@ -204,19 +204,17 @@ def championship_screen(user):
             st.session_state.screen = "rules_mgp"
             st.session_state.rules_data = rules_mgp
             st.rerun()
-
+            
+    st.title("Results")
     # Bottone "Compute results" visibile solo al presidente della league
     if is_president:
-        st.markdown("")  # piccolo spacer
+        st.markdown("")  
         if st.button("Compute results", key="compute_results_btn"):
-            # chiama la funzione di compute: sostituisci con la logica reale se vuoi
             result = compute_results_for_league(league_id)
-            # gestione della risposta generica
             if isinstance(result, dict) and result.get("error"):
                 st.error(f"Compute failed: {result.get('error')}")
             else:
                 st.success("Compute triggered.")
-                # opzionale: mostra risultato se disponibile
                 try:
                     data = getattr(result, "data", None) or (result.get("data") if isinstance(result, dict) else None)
                     if data:
