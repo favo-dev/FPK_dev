@@ -644,7 +644,7 @@ def league_screen(user):
                         except Exception as e:
                             st.error(f"Exception inserting points_per_race_f1: {e}")
 
-                         try:
+                        try:
                             mgp_points_row = {
                                 "prim_key": str(uuid.uuid4()),
                                 "id": user.get("UUID"),
