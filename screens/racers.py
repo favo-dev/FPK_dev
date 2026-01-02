@@ -1,3 +1,19 @@
+import html as _html
+from supabase import create_client
+import streamlit as st
+from logic.functions import parse_list_field, normalize_fullname_for_keys, safe_rgb_to_hex
+
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
+
+# --------------------- SUPABASE CLIENT --------------------------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+# --------------------- RACERS SCREEN ----------------------------------------------------
+
 def racers_screen(user):
     from urllib.parse import quote_plus
 
