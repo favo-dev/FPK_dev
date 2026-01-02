@@ -75,6 +75,15 @@ def home_screen(user):
         st.session_state.nav_selection = selection
         st.session_state.screen = nav_to_screen[selection]
         st.rerun()
+        
+    if "compute_results_open" not in st.session_state:
+        st.session_state.compute_results_open = False
+
+    if "compute_category" not in st.session_state:
+        st.session_state.compute_category = None
+
+    if "compute_race_id" not in st.session_state:
+        st.session_state.compute_race_id = None
 
     # routing
     if st.session_state.screen == "team":
