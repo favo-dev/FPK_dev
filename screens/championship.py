@@ -140,7 +140,6 @@ def compute_results_menu(league_id: str):
             supabase
             .from_(table_name)
             .select("ID")
-            .eq("league", league_id)
             .order("ID")
             .execute()
         )
