@@ -105,12 +105,45 @@ def show_rules_screen(rules_list, screen_name):
             # spazio vuoto per mantenere layout coerente (opzionale)
             st.markdown("<div style='opacity:.6; text-align:center; padding-top:6px'>Only president can change</div>", unsafe_allow_html=True)
 
+def user_is_president(user_uuid: str, league_id: str) -> bool:
+    """Ritorna True se user_uuid corrisponde al campo 'president' della league con ID = league_id."""
+    if not user_uuid or not league_id:
+        return False
+    try:
+        lr = supabase.from_("leagues").select("president,ID").eq("ID", league_id).limit(1).execute()
+        lrows = lr.data or []
+        if not lrows:
+            return False
+        pres = lrows[0].get("president")
+        return pres is not None and str(pres) == str(user_uuid)
+    except Exception:
+        # non bloccare l'UI in caso di problemi con la fetch
+        return False
+
+
+def compute_results_for_league(league_id: str):
+    """
+    Placeholder per la logica di calcolo. 
+    Se hai una funzione RPC lato DB chiamata 'compute_results' che accetta league_id, viene invocata.
+    Altrimenti ritorna un dict di esempio; sostituisci con la tua logica.
+    """
+    if not league_id:
+        return {"error": "league_id mancante"}
+    try:
+        # se hai una RPC Postgres chiamata compute_results(league_id uuid) la puoi usare:
+        resp = supabase.rpc("compute_results", {"league_id": league_id}).execute()
+        # resp potrebbe avere .data o .error a seconda della libreria
+        return resp
+    except Exception:
+        # fallback: semplicemente ritorna un valore di successo simulato
+        return {"data": f"Compute simulated for league {league_id}"}
+
 
 # --------------------- CHAMPIONSHIP SCREEN ----------------------------------------------------
 
 def championship_screen(user):
     loading_placeholder = st.empty()
-    loading_placeholder.info("⏳ Loading...")
+    loading_placeholder.info("Loading...")
 
     teams = supabase.from_("teams").select("*").eq("league", str(user["league"])).execute().data or []    
     not_you = [team for team in teams if team.get("who") != user.get("who")]
@@ -152,6 +185,14 @@ def championship_screen(user):
                 _render_pilot_buttons(mgp_team, "mgp", team.get('ID'))
 
     st.title("Rules")
+
+    # recupera user_uuid e league_id dallo user passato
+    user_uuid = (user.get("UUID") or user.get("uuid")) if isinstance(user, dict) else None
+    league_id = str(user.get("league")) if isinstance(user, dict) and user.get("league") is not None else None
+
+    # verifica se è presidente (usa la funzione helper)
+    is_president = user_is_president(user_uuid, league_id)
+
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Rules - F1", key="rules_f1_button"):
@@ -163,6 +204,27 @@ def championship_screen(user):
             st.session_state.screen = "rules_mgp"
             st.session_state.rules_data = rules_mgp
             st.rerun()
+
+    # Bottone "Compute results" visibile solo al presidente della league
+    if is_president:
+        st.markdown("")  # piccolo spacer
+        if st.button("Compute results", key="compute_results_btn"):
+            # chiama la funzione di compute: sostituisci con la logica reale se vuoi
+            result = compute_results_for_league(league_id)
+            # gestione della risposta generica
+            if isinstance(result, dict) and result.get("error"):
+                st.error(f"Compute failed: {result.get('error')}")
+            else:
+                st.success("Compute triggered.")
+                # opzionale: mostra risultato se disponibile
+                try:
+                    data = getattr(result, "data", None) or (result.get("data") if isinstance(result, dict) else None)
+                    if data:
+                        st.write(data)
+                except Exception:
+                    pass
+            st.rerun()
+
 
 def edit_rules_screen():
     """
