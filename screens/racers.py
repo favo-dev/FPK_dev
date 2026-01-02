@@ -32,7 +32,12 @@ def racers_screen(user):
             st.rerun()
 
     # --- fetch base tables
-    teams = supabase.from_("class").select("*").execute().data or []
+    # league id dell'utente
+    league_id = str(user.get("league")) if isinstance(user, dict) and user.get("league") is not None else None
+
+# fetch teams solo della lega dell'user
+    teams = supabase.from_("teams").select("*").eq("league", league_id).execute().data or []
+
     racers_f1 = supabase.from_("racers_f1_new").select("*").execute().data or []
     racers_mgp = supabase.from_("racers_mgp_new").select("*").execute().data or []
 
