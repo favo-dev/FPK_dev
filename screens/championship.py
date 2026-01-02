@@ -301,6 +301,8 @@ def championship_screen(user):
     # Bottone Compute results visibile solo al presidente
     if is_president:
         st.markdown("")  # spazio
+        st.title("Compute raceweek")
+        
         if st.button("Compute results", key="compute_results_btn"):
             st.session_state.compute_results_open = True
             st.rerun()
