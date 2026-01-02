@@ -3,16 +3,35 @@ import ast
 import json
 import streamlit.components.v1 as components
 from supabase import create_client
-from logic.functions import _estimate_rows_height, safe_load_team_list, _render_pilot_buttons, _render_simple_table_html, safe_rgb_to_hex
+from logic.functions import (
+    _estimate_rows_height,
+    safe_load_team_list,
+    _render_pilot_buttons,
+    _render_simple_table_html,
+    safe_rgb_to_hex
+)
 
 # -------------------------------------------------------------------------------------------
+# SUPABASE CLIENT
 # -------------------------------------------------------------------------------------------
-# -------------------------------------------------------------------------------------------
-
-# --------------------- SUPABASE CLIENT --------------------------------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+# -------------------------------------------------------------------------------------------
+# SESSION STATE INIT
+# -------------------------------------------------------------------------------------------
+if "screen" not in st.session_state:
+    st.session_state.screen = "championship"
+
+if "compute_results_open" not in st.session_state:
+    st.session_state.compute_results_open = False
+
+if "compute_category" not in st.session_state:
+    st.session_state.compute_category = None
+
+if "compute_race_id" not in st.session_state:
+    st.session_state.compute_race_id = None
 
 # --------------------- RULES SCREEN ----------------------------------------------------
 
@@ -121,20 +140,25 @@ def user_is_president(user_uuid: str, league_id: str) -> bool:
         return False
 
 def compute_results_menu(league_id: str):
-    st.subheader("Compute results")
 
-    # ---- Categoria ----
     category = st.selectbox(
         "Select category",
         ["F1", "MotoGP"],
-        index=0 if st.session_state.compute_category is None else ["F1", "MotoGP"].index(st.session_state.compute_category)
+        index=0 if st.session_state.compute_category is None
+        else ["F1", "MotoGP"].index(st.session_state.compute_category),
+        key="compute_category_select"
     )
-    st.session_state.compute_category = category
 
-    # ---- Tabella championship corretta ----
-    table_name = "championship_f1_new" if category == "F1" else "championship_mgp_new"
+    if st.session_state.compute_category != category:
+        st.session_state.compute_category = category
+        st.session_state.compute_race_id = None
 
-    # ---- Fetch gare ----
+    table_name = (
+        "championship_f1_new"
+        if category == "F1"
+        else "championship_mgp_new"
+    )
+
     try:
         races_resp = (
             supabase
@@ -149,60 +173,43 @@ def compute_results_menu(league_id: str):
         return
 
     if not races:
-        st.warning("No races available for this category.")
+        st.warning("No races available.")
         return
 
-    # ---- Selezione gara ----
+    race_index = 0
+    if (
+        st.session_state.compute_race_id is not None
+        and st.session_state.compute_race_id in races
+    ):
+        race_index = races.index(st.session_state.compute_race_id)
+
     race_id = st.selectbox(
         "Select race",
         races,
-        index=0 if st.session_state.compute_race_id is None else max(0, races.index(st.session_state.compute_race_id))
+        index=race_index,
+        key="compute_race_select"
     )
+
     st.session_state.compute_race_id = race_id
 
-    # ---- Azioni ----
-    col1, col2 = st.columns([1, 1])
+    col1, col2 = st.columns(2)
+
     with col1:
-        if st.button("Cancel", key="compute_cancel"):
+        if st.button("Cancel"):
             st.session_state.compute_results_open = False
             st.session_state.compute_category = None
             st.session_state.compute_race_id = None
             st.rerun()
 
     with col2:
-        if st.button("Confirm compute", key="compute_confirm"):
-            run_compute_results(
-                league_id=league_id,
-                category=category,
-                race_id=race_id
-            )
+        if st.button("Confirm compute"):
+            run_compute_results(league_id, category, race_id)
             st.success(f"Results computed for {category} – race {race_id}")
             st.session_state.compute_results_open = False
             st.rerun()
             
 def run_compute_results(league_id: str, category: str, race_id: str):
-    """
-    Punto di ingresso unico per il calcolo risultati.
-    Qui puoi:
-    - chiamare una RPC Postgres
-    - oppure fare calcoli Python + update su Supabase
-    """
-    try:
-        # ESEMPIO RPC (consigliato se hai logica DB):
-        # supabase.rpc(
-        #     "compute_results",
-        #     {
-        #         "league_id": league_id,
-        #         "category": category.lower(),
-        #         "race_id": race_id
-        #     }
-        # ).execute()
-
-        # Placeholder
-        print(f"Computing {category} results for race {race_id} (league {league_id})")
-
-    except Exception as e:
-        st.error(f"Compute failed: {e}")
+    print(f"Compute {category} – race {race_id} – league {league_id}")
 
 def compute_results_for_league(league_id: str):
     """
@@ -228,15 +235,22 @@ def championship_screen(user):
     loading_placeholder = st.empty()
     loading_placeholder.info("Loading...")
 
-    teams = supabase.from_("teams").select("*").eq("league", str(user["league"])).execute().data or []    
+    league_id = str(user.get("league"))
+    user_uuid = user.get("UUID") or user.get("uuid")
+
+    # Recupera tutti i team della league
+    teams = supabase.from_("teams").select("*").eq("league", league_id).execute().data or []
     not_you = [team for team in teams if team.get("who") != user.get("who")]
-    rules_f1 = supabase.from_("rules_f1_new").select("*").eq("league", str(user["league"])).execute().data or []
-    rules_mgp = supabase.from_("rules_mgp_new").select("*").eq("league", str(user["league"])).execute().data or []
+
+    # Recupera le regole F1/MotoGP per la league
+    rules_f1 = supabase.from_("rules_f1_new").select("*").eq("league", league_id).execute().data or []
+    rules_mgp = supabase.from_("rules_mgp_new").select("*").eq("league", league_id).execute().data or []
 
     loading_placeholder.empty()
 
     st.title("Other teams")
 
+    # Visualizza tutti gli altri team
     for team in not_you:
         with st.expander(f"{team.get('name','N/A')} - {team.get('who','N/A')}"):
             main_hex = safe_rgb_to_hex(team.get("main color", [0,0,0]))
@@ -249,7 +263,6 @@ def championship_screen(user):
                 """,
                 unsafe_allow_html=True
             )
-
             st.markdown(f"**Founded in**: {team.get('foundation', 'N/A')}")
             st.markdown(f"**Location**: {team.get('where', 'N/A')}")
             st.markdown(f"**FF1**: {team.get('ff1', 'N/A')}")
@@ -269,38 +282,32 @@ def championship_screen(user):
 
     st.title("Rules")
 
-    # recupera user_uuid e league_id dallo user passato
-    user_uuid = (user.get("UUID") or user.get("uuid")) if isinstance(user, dict) else None
-    league_id = str(user.get("league")) if isinstance(user, dict) and user.get("league") is not None else None
-
-    # verifica se è presidente (usa la funzione helper)
+    # Controlla se l'utente è presidente
     is_president = user_is_president(user_uuid, league_id)
 
+    # Pulsanti per regole
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Rules - F1", key="rules_f1_button"):
             st.session_state.screen = "rules_f1"
             st.session_state.rules_data = rules_f1
             st.rerun()
-
     with col2:
         if st.button("Rules - MotoGP", key="rules_mgp_button"):
             st.session_state.screen = "rules_mgp"
             st.session_state.rules_data = rules_mgp
             st.rerun()
 
-# -------------------- COMPUTE RESULTS --------------------
-
+    # Bottone Compute results visibile solo al presidente
     if is_president:
-        st.markdown("")
+        st.markdown("")  # spazio
         if st.button("Compute results", key="compute_results_btn"):
             st.session_state.compute_results_open = True
             st.rerun()
 
+    # Mostra il menu compute results se aperto
     if is_president and st.session_state.compute_results_open:
         compute_results_menu(league_id)
-
-
 
 def edit_rules_screen():
     """
