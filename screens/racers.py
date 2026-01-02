@@ -158,9 +158,6 @@ def racers_screen(user):
         historical_poles = int(parse_value(s.get("historical_poles"))) if s.get("historical_poles") is not None else 0
         historical_sprint_wins = int(parse_value(s.get("historical_sprint_wins"))) if s.get("historical_sprint_wins") is not None else 0
 
-        # crea stringa compatta di stats per visualizzazione sotto il nome
-        stats_line = f"Wins: {wins} | Poles: {poles} | Podiums: {podiums} | DNF: {dnf}"
-        # se vuoi mostrare altro aggiungi qui
 
         rows.append({
             "Pilota_html": name_html,
@@ -183,7 +180,6 @@ def racers_screen(user):
                 "historical_poles": historical_poles,
                 "historical_sprint_wins": historical_sprint_wins
             },
-            "stats_line": stats_line
         })
 
     # ordina per Valore (come prima)
