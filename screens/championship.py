@@ -273,6 +273,7 @@ def championship_screen(user):
             st.markdown("**F1 team:**")
             f1_team = safe_load_team_list(team.get("F1", []))
             if f1_team:
+                st.write(f1_team)
                 _render_pilot_buttons(f1_team, "f1", team.get('ID'))
 
             st.markdown("**MotoGP team:**")
