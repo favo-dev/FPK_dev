@@ -123,7 +123,39 @@ def show_rules_screen(rules_list, screen_name):
         else:
             # spazio vuoto per mantenere layout coerente (opzionale)
             st.markdown("<div style='opacity:.6; text-align:center; padding-top:6px'>Only president can change</div>", unsafe_allow_html=True)
+            
+def _render_pilot_buttons_safe(pilots, series: str, team_id):
+    """
+    Render pilot buttons with deterministic unique keys to avoid StreamlitDuplicateElementKey.
+    - pilots: list of pilot dicts or strings
+    - series: 'f1' or 'mgp'
+    - team_id: team.get('ID') (may be None)
+    This is a minimal replacement: adatta il comportamento on-click alle tue esigenze.
+    """
+    if not pilots:
+        return
 
+    team_id_str = str(team_id) if team_id is not None else "no_team"
+    # ensure we iterate stable order
+    for idx, p in enumerate(pilots):
+        # try to extract a stable pilot identifier
+        if isinstance(p, dict):
+            pilot_id = p.get("ID") or p.get("id") or p.get("uuid") or p.get("name") or idx
+            label = p.get("name") or str(pilot_id)
+        else:
+            pilot_id = getattr(p, "id", None) or getattr(p, "ID", None) or idx
+            label = str(p)
+
+        key = f"pilot_btn_{series}_{team_id_str}_{pilot_id}_{idx}"
+        # Example behaviour: when clicked, store selection in session_state and rerun.
+        if st.button(label, key=key):
+            st.session_state[f"selected_pilot_{series}"] = {
+                "team_id": team_id_str,
+                "pilot_id": pilot_id,
+                "label": label
+            }
+            st.rerun()
+            
 def user_is_president(user_uuid: str, league_id: str) -> bool:
     """Ritorna True se user_uuid corrisponde al campo 'president' della league con ID = league_id."""
     if not user_uuid or not league_id:
@@ -341,12 +373,11 @@ def championship_screen(user):
             st.markdown("**F1 team:**")
             f1_team = safe_load_team_list(team.get("F1", []))
             if f1_team:
-                _render_pilot_buttons(f1_team, "f1", team.get('ID'))
+                _render_pilot_buttons_safe(f1_team, "f1", team.get('ID'))
 
-            st.markdown("**MotoGP team:**")
-            mgp_team = safe_load_team_list(team.get("MotoGP", []))
             if mgp_team:
-                _render_pilot_buttons(mgp_team, "mgp", team.get('ID'))
+                _render_pilot_buttons_safe(mgp_team, "mgp", team.get('ID'))
+
 
     st.title("Rules")
 
