@@ -123,39 +123,7 @@ def show_rules_screen(rules_list, screen_name):
         else:
             # spazio vuoto per mantenere layout coerente (opzionale)
             st.markdown("<div style='opacity:.6; text-align:center; padding-top:6px'>Only president can change</div>", unsafe_allow_html=True)
-            
-def _render_pilot_buttons_safe(pilots, series: str, team_id):
-    """
-    Render pilot buttons with deterministic unique keys to avoid StreamlitDuplicateElementKey.
-    - pilots: list of pilot dicts or strings
-    - series: 'f1' or 'mgp'
-    - team_id: team.get('ID') (may be None)
-    This is a minimal replacement: adatta il comportamento on-click alle tue esigenze.
-    """
-    if not pilots:
-        return
 
-    team_id_str = str(team_id) if team_id is not None else "no_team"
-    # ensure we iterate stable order
-    for idx, p in enumerate(pilots):
-        # try to extract a stable pilot identifier
-        if isinstance(p, dict):
-            pilot_id = p.get("ID") or p.get("id") or p.get("uuid") or p.get("name") or idx
-            label = p.get("name") or str(pilot_id)
-        else:
-            pilot_id = getattr(p, "id", None) or getattr(p, "ID", None) or idx
-            label = str(p)
-
-        key = f"pilot_btn_{series}_{team_id_str}_{pilot_id}_{idx}"
-        # Example behaviour: when clicked, store selection in session_state and rerun.
-        if st.button(label, key=key):
-            st.session_state[f"selected_pilot_{series}"] = {
-                "team_id": team_id_str,
-                "pilot_id": pilot_id,
-                "label": label
-            }
-            st.rerun()
-            
 def user_is_president(user_uuid: str, league_id: str) -> bool:
     """Ritorna True se user_uuid corrisponde al campo 'president' della league con ID = league_id."""
     if not user_uuid or not league_id:
@@ -286,26 +254,18 @@ def compute_results_menu(league_id: str):
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button(
-            "Cancel",
-            key=f"cancel_compute_{category}_{race_id}"
-        ):
+        if st.button("Cancel"):
             st.session_state.compute_results_open = False
             st.session_state.compute_category = None
             st.session_state.compute_race_id = None
             st.rerun()
 
     with col2:
-        if st.button(
-            "Confirm compute",
-            key=f"confirm_compute_{category}_{race_id}",
-            disabled=is_empty
-        ):
+        if st.button("Confirm compute", disabled=is_empty):
             run_compute_results(league_id, category, race_id)
             st.success(f"Results computed for {category} – race {race_id}")
             st.session_state.compute_results_open = False
             st.rerun()
-
 
             
 def run_compute_results(league_id: str, category: str, race_id: str):
@@ -373,11 +333,12 @@ def championship_screen(user):
             st.markdown("**F1 team:**")
             f1_team = safe_load_team_list(team.get("F1", []))
             if f1_team:
-                _render_pilot_buttons_safe(f1_team, "f1", team.get('ID'))
+                _render_pilot_buttons(f1_team, "f1", team.get('ID'))
 
+            st.markdown("**MotoGP team:**")
+            mgp_team = safe_load_team_list(team.get("MotoGP", []))
             if mgp_team:
-                _render_pilot_buttons_safe(mgp_team, "mgp", team.get('ID'))
-
+                _render_pilot_buttons(mgp_team, "mgp", team.get('ID'))
 
     st.title("Rules")
 
@@ -670,6 +631,9 @@ def edit_rules_screen():
             st.session_state["rules_data"] = refreshed
         except Exception:
             pass
+
+        st.session_state.screen = target  # back to rules view (rules_f1 / rules_mgp)
+        st.rerun()
 
         st.session_state.screen = target  # back to rules view (rules_f1 / rules_mgp)
         st.rerun()
