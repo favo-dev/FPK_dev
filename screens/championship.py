@@ -254,18 +254,26 @@ def compute_results_menu(league_id: str):
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("Cancel"):
+        if st.button(
+            "Cancel",
+            key=f"cancel_compute_{category}_{race_id}"
+        ):
             st.session_state.compute_results_open = False
             st.session_state.compute_category = None
             st.session_state.compute_race_id = None
             st.rerun()
 
     with col2:
-        if st.button("Confirm compute", disabled=is_empty):
+        if st.button(
+            "Confirm compute",
+            key=f"confirm_compute_{category}_{race_id}",
+            disabled=is_empty
+        ):
             run_compute_results(league_id, category, race_id)
             st.success(f"Results computed for {category} – race {race_id}")
             st.session_state.compute_results_open = False
             st.rerun()
+
 
             
 def run_compute_results(league_id: str, category: str, race_id: str):
