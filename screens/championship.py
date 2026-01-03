@@ -124,6 +124,51 @@ def show_rules_screen(rules_list, screen_name):
             # spazio vuoto per mantenere layout coerente (opzionale)
             st.markdown("<div style='opacity:.6; text-align:center; padding-top:6px'>Only president can change</div>", unsafe_allow_html=True)
 
+def check_storage_folder(category: str, race_id: str):
+    """
+    Returns (is_empty: bool, tag: str | None, error: str | None)
+    """
+
+    table_name = (
+        "championship_f1_new"
+        if category == "F1"
+        else "championship_mgp_new"
+    )
+
+    bucket_name = "F126" if category == "F1" else "MGP26"
+
+    try:
+        # Recupero tag dalla tabella campionato
+        resp = (
+            supabase
+            .from_(table_name)
+            .select("tag")
+            .eq("ID", race_id)
+            .single()
+            .execute()
+        )
+
+        if not resp.data or "tag" not in resp.data:
+            return False, None, "Race tag not found."
+
+        tag = resp.data["tag"]
+
+        # Lista contenuto cartella
+        files = (
+            supabase
+            .storage
+            .from_(bucket_name)
+            .list(path=tag)
+        )
+
+        # Cartella vuota = nessun file
+        is_empty = not files or len(files) == 0
+
+        return is_empty, tag, None
+
+    except Exception as e:
+        return False, None, str(e)
+
 def user_is_president(user_uuid: str, league_id: str) -> bool:
     """Ritorna True se user_uuid corrisponde al campo 'president' della league con ID = league_id."""
     if not user_uuid or not league_id:
@@ -192,6 +237,19 @@ def compute_results_menu(league_id: str):
 
     st.session_state.compute_race_id = race_id
 
+    # ---- STORAGE CHECK ----
+    is_empty, tag, error = check_storage_folder(category, race_id)
+
+    if error:
+        st.error(error)
+        return
+
+    if is_empty:
+        st.warning(
+            f"The storage folder '{tag}' is empty. "
+            "Please upload the required files before computing results."
+        )
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -202,11 +260,12 @@ def compute_results_menu(league_id: str):
             st.rerun()
 
     with col2:
-        if st.button("Confirm compute"):
+        if st.button("Confirm compute", disabled=is_empty):
             run_compute_results(league_id, category, race_id)
             st.success(f"Results computed for {category} – race {race_id}")
             st.session_state.compute_results_open = False
             st.rerun()
+
             
 def run_compute_results(league_id: str, category: str, race_id: str):
     print(f"Compute {category} – race {race_id} – league {league_id}")
