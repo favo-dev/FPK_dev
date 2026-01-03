@@ -1,5 +1,8 @@
 import streamlit as st
 import ast
+import pickle
+import pandas as pd
+import io
 import json
 import streamlit.components.v1 as components
 from supabase import create_client
@@ -168,6 +171,56 @@ def check_storage_folder(category: str, race_id: str):
 
     except Exception as e:
         return False, None, str(e)
+        
+def show_compute_outputs_from_storage(category: str, tag: str):
+    """
+    Scarica e mostra result_matrix.pkl e standings.pkl dai bucket Supabase.
+    """
+
+    bucket_name = "F126" if category == "F1" else "MGP26"
+
+    files_to_check = {
+        "Result matrix": "result_matrix.pkl",
+        "Standings": "standings.pkl",
+    }
+
+    found_any = False
+
+    for title, fname in files_to_check.items():
+        storage_path = f"{tag}/{fname}"
+
+        try:
+            resp = (
+                supabase
+                .storage
+                .from_(bucket_name)
+                .download(storage_path)
+            )
+
+            if resp is None:
+                continue
+
+            found_any = True
+
+            # Supabase restituisce bytes
+            obj = pickle.load(io.BytesIO(resp))
+
+            st.subheader(title)
+
+            # rendering intelligente
+            if isinstance(obj, pd.DataFrame):
+                st.dataframe(obj, use_container_width=True)
+            elif isinstance(obj, (list, dict)):
+                st.json(obj)
+            else:
+                st.write(obj)
+
+        except Exception:
+            # file non presente o errore di lettura → ignora silenziosamente
+            continue
+
+    if not found_any:
+        st.info("No compute output files found (result_matrix / standings).")
 
 def user_is_president(user_uuid: str, league_id: str) -> bool:
     """Ritorna True se user_uuid corrisponde al campo 'president' della league con ID = league_id."""
@@ -262,9 +315,11 @@ def compute_results_menu(league_id: str):
     with col2:
         if st.button("Confirm compute", disabled=is_empty):
             run_compute_results(league_id, category, race_id)
+
             st.success(f"Results computed for {category} – race {race_id}")
-            st.session_state.compute_results_open = False
-            st.rerun()
+
+            st.markdown("### Computed outputs")
+            show_compute_outputs_from_storage(category, tag)
 
             
 def run_compute_results(league_id: str, category: str, race_id: str):
