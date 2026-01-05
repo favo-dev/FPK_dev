@@ -403,11 +403,11 @@ def callup_screen(user):
 
         # league settings
         if champ_code == "F1":
-            champ_table = "championship_f1"
+            champ_table = "championship_f1_new"
             N = None
             A = 0
         else:
-            champ_table = "championship_mgp"
+            champ_table = "championship_mgp_new"
             N = None
             A = 0
 
