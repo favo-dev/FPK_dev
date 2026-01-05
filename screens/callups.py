@@ -24,6 +24,11 @@ def callup_screen(user):
     - Popola / aggiorna la riga in calls_f1_new / calls_mgp_new con uuid+league
     - Mostra la barra di avanzamento / countdown per la prossima gara
     - Mostra la tabella dei convocati (calls_f1_new / calls_mgp_new) di tutte le squadre sotto il pulsante
+
+    Nota importante: la tabella pubblica mostra SOLO le righe appartenenti alla stessa league dell'utente
+    e SOLO se la data `when` è antecedente al `limit` della gara corrente **e** successiva al `limit`
+    della gara cronologicamente precedente (se esiste). Per la prima gara (nessuna precedente) si richiede
+    solo `when < current_limit`.
     """
 
     if st.session_state.get("force_rerun", False):
@@ -99,13 +104,14 @@ def callup_screen(user):
         last = _html.escape(" ".join(parts[1:]))
         return f"<span class='name-first'>{first}</span><span class='name-last'>{last}</span>"
 
-    def display_calls_table(table_name, team_map, caption=None, prev_limit_iso=None, league_id=None, champ_code=None):
+    def display_calls_table(table_name, team_map, caption=None, current_limit_iso=None, previous_limit_iso=None, league_id=None, champ_code=None):
         """
         Renders styled list of rows from `table_name` (calls_f1_new / calls_mgp_new).
         - Filtra per league se league_id è fornito.
-        - Prima colonna: teams.name trovata cercando una riga in teams con UUID == calls_row['uuid'] e league == calls_row['league'].
-        - Colonne dinamiche: in base alla configurazione di lega (N, A) mostra First/Second/... e First Reserve/Second Reserve/...
-        - prev_limit_iso: se fornito, le righe con when < prev_limit_iso mostrano N/A (eccetto Team).
+        - Mostra SOLO le righe che appartengono alla league_id (se fornita) e che hanno convocati effettivi
+          e tali convocati sono stati salvati **prima** del `current_limit_iso` **e** **dopo** il `previous_limit_iso`
+          (se `previous_limit_iso` è fornito). Per la prima gara `previous_limit_iso` sarà None e verrà
+          saltato il controllo "after previous".
         """
         try:
             q = supabase.from_(table_name).select("*")
@@ -159,6 +165,75 @@ def callup_screen(user):
         ACTIVE_FIELDS = ["first", "second", "third", "fourth"][:N]
         RESERVE_FIELDS = ["reserve", "reserve_two", "reserve_three", "reserve_four"][:R]
 
+        # parse current and previous limits into aware dt (UTC assumed if naive)
+        current_limit_dt = None
+        previous_limit_dt = None
+        if current_limit_iso:
+            try:
+                current_limit_dt = datetime.fromisoformat(str(current_limit_iso))
+                if current_limit_dt.tzinfo is None:
+                    current_limit_dt = current_limit_dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                current_limit_dt = None
+        if previous_limit_iso:
+            try:
+                previous_limit_dt = datetime.fromisoformat(str(previous_limit_iso))
+                if previous_limit_dt.tzinfo is None:
+                    previous_limit_dt = previous_limit_dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                previous_limit_dt = None
+
+        # Filter calls: keep only those that have at least one selected racer and whose 'when' is
+        # previous_limit_dt < when_dt < current_limit_dt   (if previous_limit_dt is None, require only when_dt < current_limit_dt)
+        filtered_calls = []
+        for r in calls:
+            try:
+                # check 'when' exists and is parseable
+                when_raw = r.get("when") or r.get("When") or None
+                if not when_raw:
+                    continue
+                when_dt = None
+                try:
+                    when_dt = datetime.fromisoformat(str(when_raw))
+                    if when_dt.tzinfo is None:
+                        when_dt = when_dt.replace(tzinfo=timezone.utc)
+                except Exception:
+                    # skip rows with unparseable when
+                    continue
+
+                # require when_dt < current_limit_dt if current_limit_dt available
+                if current_limit_dt and not (when_dt < current_limit_dt):
+                    continue
+
+                # if previous_limit_dt is provided, require when_dt > previous_limit_dt
+                if previous_limit_dt and not (when_dt > previous_limit_dt):
+                    continue
+
+                # require at least one non-empty call (active or reserve)
+                has_convocati = False
+                for f in ACTIVE_FIELDS:
+                    v = r.get(f)
+                    if v and str(v).strip():
+                        has_convocati = True
+                        break
+                if not has_convocati:
+                    for f in RESERVE_FIELDS:
+                        v = r.get(f)
+                        if v and str(v).strip():
+                            has_convocati = True
+                            break
+                if not has_convocati:
+                    continue
+
+                filtered_calls.append(r)
+            except Exception:
+                # skip problematic rows
+                continue
+
+        if not filtered_calls:
+            st.info("Nessuna chiamata pubblica valida per la gara corrente (filtri league/limiti).")
+            return
+
         # CSS
         st.markdown(
             """
@@ -209,17 +284,7 @@ def callup_screen(user):
         except Exception:
             teams_by_uuid = {}
 
-        # parse prev_limit into aware dt (UTC assumed if naive)
-        prev_limit_dt = None
-        if prev_limit_iso:
-            try:
-                prev_limit_dt = datetime.fromisoformat(str(prev_limit_iso))
-                if prev_limit_dt.tzinfo is None:
-                    prev_limit_dt = prev_limit_dt.replace(tzinfo=timezone.utc)
-            except Exception:
-                prev_limit_dt = None
-
-        for r in calls:
+        for r in filtered_calls:
             # determine team name
             team_name = None
             try:
@@ -247,34 +312,18 @@ def callup_screen(user):
                 v = r.get(f) or ""
                 reserve_values.append(v)
 
-            # when / date formatting and prev_limit check
+            # when / date formatting
             when_raw = r.get("when") or r.get("When") or ""
             date_str = _html.escape(str(when_raw))
 
-            show_na = False
             try:
-                if prev_limit_dt and when_raw:
-                    when_dt = datetime.fromisoformat(str(when_raw))
-                    if when_dt.tzinfo is None:
-                        when_dt = when_dt.replace(tzinfo=timezone.utc)
-                    if when_dt < prev_limit_dt:
-                        show_na = True
+                dt = datetime.fromisoformat(str(when_raw))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt_it = dt.astimezone(IT_TZ)
+                date_str = dt_it.strftime('%H:%M:%S, %d/%m/%Y')
             except Exception:
-                show_na = False
-
-            if show_na:
-                active_values = ["N/A"] * A
-                reserve_values = ["N/A"] * R
-                date_str = "N/A"
-            else:
-                try:
-                    dt = datetime.fromisoformat(str(when_raw))
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    dt_it = dt.astimezone(IT_TZ)
-                    date_str = dt_it.strftime('%H:%M:%S, %d/%m/%Y')
-                except Exception:
-                    pass
+                pass
 
             # format each name cell using format_name_for_display
             def fmt_cell(x):
@@ -465,6 +514,7 @@ def callup_screen(user):
         # — show next race name and progress bar (pull championship table)
         next_race = None
         howmany = 0
+        champ = []
         try:
             champ = supabase.from_(champ_table).select("*").execute().data or []
             for element in champ:
@@ -477,6 +527,22 @@ def callup_screen(user):
         except Exception:
             champ = []
             next_race = None
+
+        # determine current and previous race limits (previous = nearest past race by number)
+        current_limit_iso = None
+        previous_limit_iso = None
+        if next_race:
+            current_limit_iso = next_race.get('limit')
+            try:
+                # find previous race by number strictly less than current
+                prev_candidates = [x for x in champ if x.get('number', -1) < (next_race.get('number', -1))]
+                if prev_candidates:
+                    prev_race = max(prev_candidates, key=lambda z: z.get('number', 0))
+                    previous_limit_iso = prev_race.get('limit')
+                else:
+                    previous_limit_iso = None
+            except Exception:
+                previous_limit_iso = None
 
         if next_race:
             # compute limit dt as aware (assume UTC if naive)
@@ -649,20 +715,10 @@ def callup_screen(user):
         # --- display calls table of other teams (public) under the button ---
         team_map = fetch_team_map()
 
-        # determine prev_limit_iso: the latest race with status False before current True one
-        prev_limit_iso = None
-        try:
-            prev_candidates = [x for x in champ if x.get('number') < (next_race.get('number') if next_race else -1) and x.get('status') is False]
-            if prev_candidates:
-                prev_race = max(prev_candidates, key=lambda z: z.get('number', 0))
-                prev_limit_iso = prev_race.get('limit')
-        except Exception:
-            prev_limit_iso = None
-
         if calls_public_table:
             caption = "Call-ups | F1" if champ_code == "F1" else "Call ups | MotoGP"
             # show the *new* calls table filtered to this league so the UI reflects calls_f1_new / calls_mgp_new
-            display_calls_table(calls_new_table, team_map, caption=caption, prev_limit_iso=prev_limit_iso, league_id=league_id, champ_code=champ_code)
+            display_calls_table(calls_new_table, team_map, caption=caption, current_limit_iso=current_limit_iso, previous_limit_iso=previous_limit_iso, league_id=league_id, champ_code=champ_code)
 
     # --- top-level: determine user's league and render sections ---
     user_league_id = user.get("league") or user.get("league_id") or st.session_state.get("selected_league")
@@ -699,3 +755,4 @@ def callup_screen(user):
     if st.button("Back to team"):
         st.session_state.screen = "team"
         st.rerun()
+
