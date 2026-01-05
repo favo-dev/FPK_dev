@@ -43,11 +43,12 @@ def calendar_screen(user):
     for race in all_races:
         race["name"] = fix_mojibake(race.get("name", race.get("ID", "Unknown Race")))
         race["circuit"] = fix_mojibake(race.get("circuit", "Circuit unknown"))
-
-    for race in all_races:
         race["when_dt"] = datetime.strptime(race["when"], "%Y-%m-%d")
+
+    # ordina tutte le gare cronologicamente
     all_races.sort(key=lambda r: r["when_dt"])
 
+    # raggruppa per raceweek
     raceweeks = []
     current_date = None
     current_rw = []
@@ -62,9 +63,32 @@ def calendar_screen(user):
     if current_rw:
         raceweeks.append(current_rw)
 
-    st.title("Race Calendar")
+    # identifica gara appena conclusa e prossima gara
     today = datetime.now().date()
-    for i, rw in enumerate(raceweeks, start=1):
+    past_race = None
+    next_race = None
+    for rw in raceweeks:
+        rw_date = rw[0]["when_dt"].date()
+        if rw_date <= today:
+            past_race = rw
+        elif rw_date > today and next_race is None:
+            next_race = rw
+            break
+
+    # ricostruisci lista raceweeks con prima le due gare di interesse
+    ordered_raceweeks = []
+    if past_race:
+        ordered_raceweeks.append(past_race)
+    if next_race and next_race != past_race:
+        ordered_raceweeks.append(next_race)
+    for rw in raceweeks:
+        if rw not in ordered_raceweeks:
+            ordered_raceweeks.append(rw)
+
+    st.title("Race Calendar")
+
+    # render dei raceweeks
+    for i, rw in enumerate(ordered_raceweeks, start=1):
         with st.container():
             race_date = rw[0]["when_dt"].date()
             if race_date < today:
@@ -86,9 +110,8 @@ def calendar_screen(user):
                 circuit = race.get("circuit", "Circuit unknown")
                 category = race["category"]
                 race_id = race.get("ID", f"{category}_{race['when']}")
-                race_day = race["when_dt"].date()
-                race_tag = race.get("tag")
 
+                race_day = race["when_dt"].date()
                 if race_day < today:
                     status_text = "| ✅ Completed"
                 elif today <= race_day <= today + timedelta(days=2):
@@ -108,7 +131,7 @@ def calendar_screen(user):
                     if st.button("Results", key=f"results_{race_id}_{category}"):
                         with st.spinner("Checking results availability..."):
                             try:
-                                available = results_exist(race, race_tag)
+                                available = results_exist(race, race.get("tag"))
                             except Exception as e:
                                 available = False
                                 st.error(f"Errore nel controllo risultati: {e}")
@@ -118,6 +141,7 @@ def calendar_screen(user):
                             st.session_state.selected_race = race
                             st.session_state.screen = "race_results"
                             st.rerun()
+
 
 # --------------------- RACE RESULTS SCREEN ----------------------------------------------------
 
