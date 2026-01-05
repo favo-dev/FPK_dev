@@ -48,7 +48,7 @@ def calendar_screen(user):
     # ordina tutte le gare cronologicamente
     all_races.sort(key=lambda r: r["when_dt"])
 
-    # raggruppa per raceweek
+    # raggruppa per raceweek e assegna il numero RW
     raceweeks = []
     current_date = None
     current_rw = []
@@ -63,45 +63,54 @@ def calendar_screen(user):
     if current_rw:
         raceweeks.append(current_rw)
 
+    # assegna numero originale di raceweek (partendo da 1)
+    for idx, rw in enumerate(raceweeks, start=1):
+        for r in rw:
+            r["_rw_number"] = idx
+
     # identifica gara appena conclusa e prossima gara
     today = datetime.now().date()
-    past_race = None
-    next_race = None
-    for rw in raceweeks:
+    past_rw_idx = None
+    next_rw_idx = None
+    for idx, rw in enumerate(raceweeks):
         rw_date = rw[0]["when_dt"].date()
         if rw_date <= today:
-            past_race = rw
-        elif rw_date > today and next_race is None:
-            next_race = rw
-            break
+            past_rw_idx = idx
+        elif rw_date > today and next_rw_idx is None:
+            next_rw_idx = idx
 
-    # ricostruisci lista raceweeks con prima le due gare di interesse
-    ordered_raceweeks = []
-    if past_race:
-        ordered_raceweeks.append(past_race)
-    if next_race and next_race != past_race:
-        ordered_raceweeks.append(next_race)
-    for rw in raceweeks:
-        if rw not in ordered_raceweeks:
-            ordered_raceweeks.append(rw)
+    # costruisci ordine di visualizzazione (prima la gara appena conclusa e la prossima, poi tutte le altre)
+    display_order = []
+    seen = set()
+    if past_rw_idx is not None:
+        display_order.append(raceweeks[past_rw_idx])
+        seen.add(past_rw_idx)
+    if next_rw_idx is not None and next_rw_idx not in seen:
+        display_order.append(raceweeks[next_rw_idx])
+        seen.add(next_rw_idx)
+    for idx, rw in enumerate(raceweeks):
+        if idx not in seen:
+            display_order.append(rw)
 
     st.title("Race Calendar")
 
     # render dei raceweeks
-    for i, rw in enumerate(ordered_raceweeks, start=1):
+    for rw in display_order:
+        rw_number = rw[0].get("_rw_number", "?")
+        race_date = rw[0]["when_dt"].date()
+        if race_date < today:
+            rw_status = "| ✅ Completed"
+        elif today <= race_date <= today + timedelta(days=2):
+            rw_status = "| 🔄 Undergoing"
+        elif today + timedelta(days=2) < race_date <= today + timedelta(days=7):
+            rw_status = "| 📅 Upcoming"
+        else:
+            rw_status = ""
+
         with st.container():
-            race_date = rw[0]["when_dt"].date()
-            if race_date < today:
-                rw_status = "| ✅ Completed"
-            elif today <= race_date <= today + timedelta(days=2):
-                rw_status = "| 🔄 Undergoing"
-            elif today + timedelta(days=2) < race_date <= today + timedelta(days=7):
-                rw_status = "| 📅 Upcoming"
-            else:
-                rw_status = ""
             st.markdown(f"""
                 <div style="border:2px solid white;border-radius:10px;padding:15px;margin-bottom:30px;background-color:#222;">
-                    <h3 style="margin-top:0;">Raceweek #{i} - {rw[0]['when_dt'].strftime('%d %b %Y')} {rw_status}</h3>
+                    <h3 style="margin-top:0;">Raceweek #{rw_number} - {rw[0]['when_dt'].strftime('%d %b %Y')} {rw_status}</h3>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -141,6 +150,7 @@ def calendar_screen(user):
                             st.session_state.selected_race = race
                             st.session_state.screen = "race_results"
                             st.rerun()
+
 
 
 # --------------------- RACE RESULTS SCREEN ----------------------------------------------------
