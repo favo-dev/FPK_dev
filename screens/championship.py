@@ -269,8 +269,6 @@ def compute_results_menu(league_id: str):
 
             st.success(f"Results computed for {category} – race {race_id}")
 
-            st.markdown("### Computed outputs")
-
 def raceweek_computer(tag, cat, league):
     url = SUPABASE_URL
     key = SUPABASE_ANON_KEY
