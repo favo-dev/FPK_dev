@@ -970,7 +970,7 @@ def raceweek_computer(tag, cat, league):
                     tag: float(tot)
                 })
                 .eq("league", league)
-                .eq("id", user_uuid)
+                .eq("id", team["UUID"])
                  .execute()
             ) 
     return    
