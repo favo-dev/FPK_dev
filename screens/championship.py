@@ -264,7 +264,7 @@ def compute_results_menu(league_id: str):
 
     with col2:
         if st.button("Confirm compute", disabled=is_empty):
-            raceweek_computer(race_id, category, league_id)
+            raceweek_computer(tag, category, league_id)
 
             st.success(f"Results computed for {category} – race {race_id}")
 
