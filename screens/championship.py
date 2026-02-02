@@ -265,7 +265,7 @@ def compute_results_menu(league_id: str):
 
     with col2:
         if st.button("Confirm compute", disabled=is_empty):
-            raceweek_computer(tag, category, league_id, user)
+            raceweek_computer(tag, category, league_id)
 
             st.success(f"Results computed for {category} – race {race_id}")
 
@@ -961,18 +961,16 @@ def raceweek_computer(tag, cat, league):
                         tot = tot + driver[5]
                         continue
 
-            for player in points:
-                if player["league"] == league and player["id"] == user_uuid:
-                  response = (
-                      supabase
-                      .table(table)
-                      .update({
-                          tag: float(tot)
-                      })
-                      .eq("league", league)
-                      .eq("id", user_uuid)
-                      .execute()
-                  ) 
+            response = (
+                supabase
+                .table(table)
+                .update({
+                    tag: float(tot)
+                })
+                .eq("league", league)
+                .eq("id", user_uuid)
+                 .execute()
+            ) 
     return    
 
 # --------------------- CHAMPIONSHIP SCREEN ----------------------------------------------------
