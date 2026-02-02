@@ -171,56 +171,6 @@ def check_storage_folder(category: str, race_id: str):
 
     except Exception as e:
         return False, None, str(e)
-        
-def show_compute_outputs_from_storage(category: str, tag: str):
-    """
-    Scarica e mostra result_matrix.pkl e standings.pkl dai bucket Supabase.
-    """
-
-    bucket_name = "F126" if category == "F1" else "MGP26"
-
-    files_to_check = {
-        "Result matrix": "result_matrix.pkl",
-        "Standings": "standings.pkl",
-    }
-
-    found_any = False
-
-    for title, fname in files_to_check.items():
-        storage_path = f"{tag}/{fname}"
-
-        try:
-            resp = (
-                supabase
-                .storage
-                .from_(bucket_name)
-                .download(storage_path)
-            )
-
-            if resp is None:
-                continue
-
-            found_any = True
-
-            # Supabase restituisce bytes
-            obj = pickle.load(io.BytesIO(resp))
-
-            st.subheader(title)
-
-            # rendering intelligente
-            if isinstance(obj, pd.DataFrame):
-                st.dataframe(obj, use_container_width=True)
-            elif isinstance(obj, (list, dict)):
-                st.json(obj)
-            else:
-                st.write(obj)
-
-        except Exception:
-            # file non presente o errore di lettura → ignora silenziosamente
-            continue
-
-    if not found_any:
-        st.info("No compute output files found (result_matrix / standings).")
 
 def user_is_president(user_uuid: str, league_id: str) -> bool:
     """Ritorna True se user_uuid corrisponde al campo 'president' della league con ID = league_id."""
@@ -314,34 +264,713 @@ def compute_results_menu(league_id: str):
 
     with col2:
         if st.button("Confirm compute", disabled=is_empty):
-            run_compute_results(league_id, category, race_id)
+            raceweek_computer(race_id, category, league_id)
 
             st.success(f"Results computed for {category} – race {race_id}")
 
             st.markdown("### Computed outputs")
-            show_compute_outputs_from_storage(category, tag)
 
-            
-def run_compute_results(league_id: str, category: str, race_id: str):
-    print(f"Compute {category} – race {race_id} – league {league_id}")
+def raceweek_computer(tag, cat, league):
+    url = SUPABASE_URL
+    key = SUPABASE_ANON_KEY
 
-def compute_results_for_league(league_id: str):
-    """
-    Placeholder per la logica di calcolo. 
-    Se hai una funzione RPC lato DB chiamata 'compute_results' che accetta league_id, viene invocata.
-    Altrimenti ritorna un dict di esempio; sostituisci con la tua logica.
-    """
-    if not league_id:
-        return {"error": "league_id mancante"}
+    # -----------------------
+    # Bucket mapping
+    # -----------------------
+    
+    bucket_map = {
+        "F1": "F126",
+        "MGP": "MGP26"
+    }
+
+    if cat not in bucket_map:
+        raise ValueError(f"Category not valid: {cat}")
+
+    bucket_name = bucket_map[cat]
+
+    # -----------------------
+    # Download pickle
+    # -----------------------
+    
+    file_path = f"{tag}/result_matrix.pkl"
+
     try:
-        # se hai una RPC Postgres chiamata compute_results(league_id uuid) la puoi usare:
-        resp = supabase.rpc("compute_results", {"league_id": league_id}).execute()
-        # resp potrebbe avere .data o .error a seconda della libreria
-        return resp
-    except Exception:
-        # fallback: semplicemente ritorna un valore di successo simulato
-        return {"data": f"Compute simulated for league {league_id}"}
+        file_bytes = supabase.storage.from_(bucket_name).download(file_path)
+    except Exception as e:
+        raise FileNotFoundError(
+            f"Impossibile scaricare {file_path} dal bucket {bucket_name}"
+        ) from e
 
+    results = pickle.loads(file_bytes)
+
+    # -----------------------
+    # Table mapping
+    # -----------------------
+    
+    table_map = {
+        "F1": {
+            "marks": "marks_f1_new",
+            "rules": "rules_f1_new",
+            "calls": "calls_f1_hist"
+    },
+        "MGP": {
+            "marks": "marks_mgp_new",
+            "rules": "rules_mgp_new",
+            "calls": "calls_mgp_hist"
+        }
+    }
+
+    marks_table = table_map[cat]["marks"]
+    rules_table = table_map[cat]["rules"]
+    calls_table = table_map[cat]["calls"]
+    
+
+    # -----------------------
+    # Fetch tables
+    # -----------------------
+    
+    marks_response = supabase.table(marks_table).select("*").execute()
+    rules_response = (supabase.table(rules_table).select("*").order("rule", desc=False).execute())
+    calls_response = supabase.table(calls_table).select("*").execute()
+    starter_number_response = supabase.table("leagues").select("*").execute()
+
+    marks = marks_response.data
+    rules = rules_response.data
+    rules = [item for item in rules if item["league"] == league]
+    calls = calls_response.data
+    calls = [item for item in calls if item["tag"] == tag and item["league"] == league]
+    starter_number = starter_number_response.data
+    starter_number = [item for item in starter_number if item["ID"] == league]
+    
+    # -----------------------
+    # Functions
+    # -----------------------
+    
+    def assign_points(drivers, prules, index=0, points=None):
+            if points is None:
+                points = []
+
+    
+            if index >= len(drivers):
+                return points
+
+            driver = drivers[index]
+            try:
+                pos = int(driver[7])
+                if 1 <= pos <= len(prules):
+                    points.append(prules[pos - 1])
+                else:
+                    points.append(0)  
+            except (ValueError, IndexError):
+                points.append(0)
+                
+    
+            return assign_points(drivers, prules, index + 1, points)
+        
+    # -------------------------------------------------------------------------
+    
+    def build_filtered_final(final_results, calls_dict):
+        filtered_final = []
+    
+        race_map = {racer[0]: racer for racer in final_results}
+
+        used_drivers = set()
+
+        for call in calls_dict.values():
+
+            for starter in call["starters"]:
+                racer = race_map.get(starter)
+
+                if racer is None:
+                    continue
+
+                if racer[1] != 99:
+                    if starter not in used_drivers:
+                        filtered_final.append(racer)
+                        used_drivers.add(starter)
+
+                else:
+                    for reserve in call["reserves"]:
+                        reserve_racer = race_map.get(reserve)
+
+                        if reserve_racer is None:
+                            continue
+
+                        if reserve_racer[1] != 99 and reserve not in used_drivers:
+                            filtered_final.append(reserve_racer)
+                            used_drivers.add(reserve)
+                            break
+
+
+        filtered_final = sorted(
+            filtered_final,
+            key=lambda row: (-row[-1], row[1])
+            )
+
+        return filtered_final
+    
+    # -------------------------------------------------------------------------    
+    
+    def update_record_lists(player_id, category, league, tag):
+        if player_id is None: 
+            return
+        table = "league_mgp_stats" if category == "MGP" else "league_f1_stats"
+        tag = tag + str(datetime.now().year)[2:]
+        response = (
+            supabase
+            .table(table)
+            .select("convocations")
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .single()
+            .execute()
+            )
+
+        if not response.data:
+            return  
+
+        tags = response.data.get("convocations") or []
+
+ 
+        if tag in tags:
+            tags.remove(tag)
+
+ 
+        tags.append(tag)
+
+ 
+        (
+            supabase
+            .table(table)
+            .update({"convocations": tags})
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .execute()
+            )
+    
+    # -------------------------------------------------------------------------
+        
+    def update_sub_lists(player_id, category, league, tag):
+        if player_id is None: 
+            return
+        table = "league_mgp_stats" if category == "MGP" else "league_f1_stats"
+        tag = tag + str(datetime.now().year)[2:]
+        response = (
+            supabase
+            .table(table)
+            .select("sub")
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .single()
+            .execute()
+            )
+
+        if not response.data:
+            return  
+
+        tags = response.data.get("sub") or []
+
+ 
+        if tag in tags:
+            tags.remove(tag)
+
+ 
+        tags.append(tag)
+
+ 
+        (
+            supabase
+            .table(table)
+            .update({"sub": tags})
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .execute()
+            )
+    
+    # -------------------------------------------------------------------------
+    
+    def update_dnf(player_id, category, league, tag):
+        if player_id is None:
+            return
+
+        table = "league_mgp_stats" if category == "MGP" else "league_f1_stats"
+        tag = f"{tag}{str(datetime.now().year)[2:]}"
+
+        res = (
+            supabase
+            .table(table)
+            .select("dnf")
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .single()
+            .execute()
+            )
+
+        if not res.data:
+            return
+
+        tags = res.data.get("dnf") or []
+
+        if tag in tags:
+            tags.remove(tag)
+
+        tags.append(tag)
+        
+        (
+            supabase
+            .table(table)
+            .update({"dnf": tags})
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .execute()
+            )
+    
+    # -------------------------------------------------------------------------
+        
+    def update_podiums(player_id, category, league, tag):
+        if player_id is None:
+            return
+
+        table = "league_mgp_stats" if category == "MGP" else "league_f1_stats"
+        tag = f"{tag}{str(datetime.now().year)[2:]}"
+
+        res = (
+            supabase
+            .table(table)
+            .select("podiums")
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .single()
+            .execute()
+            )
+
+        if not res.data:
+            return
+
+        tags = res.data.get("podiums") or []
+
+        if tag in tags:
+            tags.remove(tag)
+
+        tags.append(tag)
+        
+        (
+            supabase
+            .table(table)
+            .update({"podiums": tags})
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .execute()
+            )
+    
+    # -------------------------------------------------------------------------
+        
+    def update_wins(player_id, category, league, tag):
+        if player_id is None:
+            return
+
+        table = "league_mgp_stats" if category == "MGP" else "league_f1_stats"
+        tag = f"{tag}{str(datetime.now().year)[2:]}"
+
+        res = (
+            supabase
+            .table(table)
+            .select("wins")
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .single()
+            .execute()
+            )
+
+        if not res.data:
+            return
+
+        tags = res.data.get("wins") or []
+
+        if tag in tags:
+            tags.remove(tag)
+
+        tags.append(tag)
+        
+        (
+            supabase
+            .table(table)
+            .update({"wins": tags})
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .execute()
+            )
+    
+    # -------------------------------------------------------------------------
+
+    def cancel_this_tag(player_id, cat, league, tag):
+        table = "league_mgp_stats" if cat == "MGP" else "league_f1_stats"
+        tag = f"{tag}{str(datetime.now().year)[2:]}"
+
+        res = (
+            supabase
+            .table(table)
+            .select("convocations, sub, dnf, wins, podiums")
+            .eq("player_id", player_id)
+            .eq("league_id", league)
+            .single()
+            .execute()
+            )
+        
+        if not res.data:
+            return
+
+        updates = {}
+
+        for field in ("convocations", "sub", "dnf", "wins", "podiums"):
+            tags = res.data.get(field) or []
+            if tag in tags:
+                tags.remove(tag)
+                updates[field] = tags
+
+        if updates:
+            (
+                supabase
+                .table(table)
+                .update(updates)
+                .eq("player_id", player_id)
+                .eq("league_id", league)
+                .execute()
+                )
+            
+            
+    # -------------------------
+    # ------ SPRINT RACE
+    # -------------------------
+    
+    
+    SPRINT_FINAL = []
+    if results.get('Sprint race'):
+        sprint_points = []
+        for driver in results['Sprint race']:
+            sprint_points.append(driver[0])
+        
+        POS = []
+        for driver in results['Sprint race']:
+            try:
+                POS.append(int(driver[7]))
+            except:
+                POS.append(99)
+                      
+        POINTS = []
+        if cat == "F1":
+            prules = ast.literal_eval(rules[14]["value"])
+            POINTS = assign_points(results['Sprint race'], prules)
+        
+        if cat == "MGP":
+            prules = ast.literal_eval(rules[11]["value"])
+            POINTS = assign_points(results['Sprint race'], prules)
+       
+        TOT = []
+        
+        if cat == "F1":
+            for driver in results['Sprint race']:
+                tot = 0
+                if 'Q2' in driver[1]:
+                    tot += float(rules[10].get("value"))
+                if 'Q3' in driver[1]:
+                    tot += float(rules[11].get("value"))
+                if driver[2]:
+                    tot += float(rules[9].get("value"))
+                if driver[3]:
+                    tot += float(rules[12].get("value"))
+                if driver[4]:
+                    tot += float(rules[0].get("value"))
+                if driver[5]:
+                    tot += float(rules[16].get("value"))
+                try:
+                    if float(driver[6]) < 0:
+                        tot += int(driver[6]) * float(rules[8].get("value"))
+                except:
+                    tot += 0
+                try:
+                    if float(driver[6]) >= 0 and float(driver[7]) <= float(rules[5].get("value")):
+                        tot += int(driver[6]) * float(rules[8].get("value"))
+                except:
+                    tot += 0
+                TOT.append(tot)
+                
+        if cat == "MGP":
+            for driver in results['Sprint race']:
+                tot = 0
+                if 'Q2' in driver[1]:
+                    tot += float(rules[7].get("value"))
+                if driver[2]:
+                    tot += float(rules[6].get("value"))
+                if driver[3]:
+                    tot += float(rules[8].get("value"))
+                if driver[4]:
+                    tot += float(rules[0].get("value"))
+                if driver[5]:
+                    tot += float(rules[14].get("value"))
+                try:
+                    if float(driver[6]) < 0:
+                        tot += int(driver[6]) * float(rules[5].get("value"))
+                except:
+                    tot += 0
+                try:
+                    if float(driver[6]) >= 0 and float(driver[7]) <= float(rules[3].get("value")):
+                        tot += int(driver[6]) * float(rules[5].get("value"))
+                except:
+                    tot += 0
+                if driver[8]:
+                    tot += float(rules[1].get("value"))
+                if driver[9]:
+                    tot += float(rules[13].get("value"))
+                TOT.append(tot)
+            
+        PERF = [x + y for x, y in zip(POINTS, TOT)]
+        
+        FINAL = [[a, b, c, d, e] for [a, b, c, d, e] in zip(sprint_points, POS, POINTS, TOT, PERF)]
+
+        for driver in FINAL:
+            if int(driver[1]) == 99:
+                driver[4] = -99        
+        SPRINT_FINAL = sorted(FINAL, key=lambda row: (-row[-1], row[1]))
+            
+        
+        
+    # ------ MAIN RACE ----------------------------------------------------------
+
+    points = []
+    for driver in results['Grand Prix']:
+        points.append(driver[0])
+        
+    POS = []
+    for driver in results['Grand Prix']:
+        try:
+                POS.append(int(driver[7]))
+        except:
+                POS.append(99)
+        
+    POINTS = []
+    for driver in results['Grand Prix']:
+        for mark in marks:
+            if driver[0] in mark.get('ID'):
+                try:
+                    POINTS.append(float(mark.get(tag)))
+                except:
+                    try:
+                        check = int(driver[7])
+                        POINTS.append(6)
+                    except:
+                        POINTS.append(-99)
+    
+    TOT = []
+     
+    if cat == "F1":
+        for driver in results['Grand Prix']:
+            tot = 0
+            if 'Q2' in driver[1]:
+                tot += float(rules[10].get("value"))
+            if 'Q3' in driver[1]:
+                tot += float(rules[11].get("value"))
+            if driver[2]:
+                tot += float(rules[9].get("value"))
+            if driver[3]:
+                tot += float(rules[12].get("value"))
+            if driver[4]:
+                tot += float(rules[0].get("value"))
+            if driver[5]:
+                tot += float(rules[16].get("value"))
+            try:
+                if float(driver[6]) < 0:
+                    tot += int(driver[6]) * float(rules[8].get("value"))
+            except:
+                tot += 0
+            try:
+                if float(driver[6]) >= 0 and float(driver[7]) <= float(rules[5].get("value")):
+                    tot += int(driver[6]) * float(rules[8].get("value"))
+            except:
+                tot += 0
+            if driver[8]:
+                tot += float(rules[3].get("value"))
+            if driver[9]:
+                tot += float(rules[13].get("value"))
+            if driver[10]:
+                tot += float(rules[2].get("value"))
+            if driver[11]:
+                tot += float(rules[1].get("value"))
+
+            if driver[12]:
+                tot += float(rules[6].get("value"))
+            TOT.append(tot)
+            
+        PERF = [x + y for x, y in zip(POINTS, TOT)]
+        
+        
+    if cat == "MGP":
+        for driver in results['Grand Prix']:
+            tot = 0
+            if 'Q2' in driver[1]:
+                tot += float(rules[7].get("value"))
+            if driver[2]:
+                tot += float(rules[6].get("value"))
+            if driver[3]:
+                tot += float(rules[9].get("value"))
+            if driver[4]:
+                tot += float(rules[0].get("value"))
+            if driver[5]:
+                tot += float(rules[14].get("value"))
+            try:
+                if float(driver[6]) < 0:
+                    tot += int(driver[6]) * float(rules[5].get("value"))
+            except:
+                tot += 0
+            try:
+                if float(driver[6]) >= 0 and float(driver[7]) <= float(rules[3].get("value")):
+                    tot += int(driver[6]) * float(rules[5].get("value"))
+            except:
+                tot += 0
+            if driver[8]:
+                tot += float(rules[1].get("value"))
+            if driver[9]:
+                tot += float(rules[13].get("value"))
+            if driver[10]:
+                tot += float(rules[9].get("value"))
+            if driver[11]:
+                tot += float(rules[10].get("value"))
+            TOT.append(tot)
+            
+        PERF = [x + y for x, y in zip(POINTS, TOT)]
+
+    FINAL = [[a, b, c, d, e] for [a, b, c, d, e] in zip(points, POS, POINTS, TOT, PERF)]
+
+    for driver in FINAL:
+            if int(driver[1]) == 99:
+                driver[4] = -99
+
+    RACE_FINAL = sorted(FINAL, key=lambda row: (-row[-1], row[1]))
+
+    
+    calls_dict = {}
+
+    for row in calls:
+        uuid = row["uuid"]
+
+        calls_dict[uuid] = {
+            "starters": [
+                row.get("first"),
+                row.get("second"),
+                row.get("third"),
+                row.get("fourth"),
+                ],
+            "reserves": [
+                row.get("reserve"),
+                row.get("reserve_two"),
+                row.get("reserve_three"),
+                row.get("reserve_four"),
+                ]
+            }
+    
+    FILTERED_SPRINT_FINAL = build_filtered_final(SPRINT_FINAL, calls_dict)
+    
+    FILTERED_RACE_FINAL = build_filtered_final(RACE_FINAL, calls_dict)
+    
+    if cat == "F1":
+        sprint_race_points = ast.literal_eval(rules[15]["value"])
+        race_points = ast.literal_eval(rules[4]["value"])
+    
+    if cat == "MGP":
+        sprint_race_points = ast.literal_eval(rules[12]["value"])
+        race_points = ast.literal_eval(rules[2]["value"])
+
+    while len(sprint_race_points) < len(FILTERED_SPRINT_FINAL):
+        sprint_race_points.append(0)
+
+    for i, racer in enumerate(FILTERED_SPRINT_FINAL):
+        racer.append(sprint_race_points[i])
+        
+    while len(race_points) < len(FILTERED_RACE_FINAL):
+        race_points.append(0)
+
+    for i, racer in enumerate(FILTERED_RACE_FINAL):
+        racer.append(race_points[i])
+    
+
+
+
+    for racer in results["Grand Prix"]:
+        cancel_this_tag(racer[0], cat, league, tag)
+        
+    for racer in calls:
+        update_record_lists(racer["first"], cat, league, tag)
+        update_record_lists(racer["second"], cat, league, tag)
+        update_record_lists(racer["third"], cat, league, tag)
+        update_record_lists(racer["fourth"], cat, league, tag)
+        for driver in FILTERED_RACE_FINAL:
+            if racer["reserve"] == driver[0]:
+                update_sub_lists(racer["reserve"], cat, league, tag)
+            if racer["reserve_two"] == driver[0]:
+                update_sub_lists(racer["reserve"], cat, league, tag)
+            if racer["reserve_three"] == driver[0]:
+                update_sub_lists(racer["reserve"], cat, league, tag)
+            if racer["reserve_four"] == driver[0]:
+                update_sub_lists(racer["reserve"], cat, league, tag)
+                
+    finished_drivers = {driver[0] for driver in FILTERED_RACE_FINAL}
+    for racer in calls:
+        for key in ("first", "second", "third", "fourth"):
+            pid = racer.get(key)
+
+            if pid is None:
+                continue
+
+            if pid not in finished_drivers:
+                update_dnf(pid, cat, league, tag)
+    
+    update_podiums(FILTERED_RACE_FINAL[0][0], cat, league, tag)
+    update_podiums(FILTERED_RACE_FINAL[1][0], cat, league, tag)
+    update_podiums(FILTERED_RACE_FINAL[2][0], cat, league, tag)
+    update_wins(FILTERED_RACE_FINAL[0][0], cat, league, tag)
+            
+    teams = supabase.table("teams").select("*").execute()
+    teams = teams.data
+    
+    if cat == "F1":
+        table = "points_per_race_f1"
+        points = supabase.table(table).select("*").execute()
+        points = points.data
+    elif cat == "MGP":
+        table = "points_per_race_mgp"
+        points = supabase.table(table).select("*").execute()
+        points = points.data
+        
+    for team in teams:
+        if team["league"] == league:
+            tot = 0           
+            if cat == "F1":
+                pilots = ast.literal_eval(team["F1"])
+            elif cat == "MGP":
+                pilots =  ast.literal_eval(team["MotoGP"])
+            for pilot in pilots:
+                for driver in FILTERED_SPRINT_FINAL:
+                    if driver[0] == pilot:
+                        tot = tot + driver[5]
+                        continue
+                for driver in FILTERED_RACE_FINAL:
+                    if driver[0] == pilot:
+                        tot = tot + driver[5]
+                        continue
+
+            for player in points:
+                if player["league"] == league and player["id"] == user["uuid"]:
+                  response = (
+                      supabase
+                      .table(table)
+                      .update({
+                          tag: float(tot)
+                      })
+                      .eq("league", league)
+                      .eq("id", user["uuid"])
+                      .execute()
+                  ) 
+    return    
 
 # --------------------- CHAMPIONSHIP SCREEN ----------------------------------------------------
 
