@@ -275,7 +275,7 @@ def raceweek_computer(tag, cat, league):
     url = SUPABASE_URL
     key = SUPABASE_ANON_KEY
     if cat == "MotoGP":
-        cat == "MGP"
+        cat = "MGP"
     user = st.session_state.get("user") or {}
     user_uuid = (user.get("UUID") or user.get("uuid")) if isinstance(user, dict) else None
 
