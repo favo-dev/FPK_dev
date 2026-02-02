@@ -265,13 +265,13 @@ def compute_results_menu(league_id: str):
 
     with col2:
         if st.button("Confirm compute", disabled=is_empty):
-            raceweek_computer(tag, category, league_id)
+            raceweek_computer(tag, category, league_id, user)
 
             st.success(f"Results computed for {category} – race {race_id}")
 
             st.markdown("### Computed outputs")
 
-def raceweek_computer(tag, cat, league):
+def raceweek_computer(tag, cat, league, user):
     url = SUPABASE_URL
     key = SUPABASE_ANON_KEY
 
