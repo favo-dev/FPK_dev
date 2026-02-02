@@ -271,9 +271,11 @@ def compute_results_menu(league_id: str):
 
             st.markdown("### Computed outputs")
 
-def raceweek_computer(tag, cat, league, user):
+def raceweek_computer(tag, cat, league):
     url = SUPABASE_URL
     key = SUPABASE_ANON_KEY
+    user = st.session_state.get("user") or {}
+    user_uuid = (user.get("UUID") or user.get("uuid")) if isinstance(user, dict) else None
 
     # -----------------------
     # Bucket mapping
@@ -960,7 +962,7 @@ def raceweek_computer(tag, cat, league, user):
                         continue
 
             for player in points:
-                if player["league"] == league and player["id"] == user["uuid"]:
+                if player["league"] == league and player["id"] == user_uuid:
                   response = (
                       supabase
                       .table(table)
@@ -968,7 +970,7 @@ def raceweek_computer(tag, cat, league, user):
                           tag: float(tot)
                       })
                       .eq("league", league)
-                      .eq("id", user["uuid"])
+                      .eq("id", user_uuid)
                       .execute()
                   ) 
     return    
