@@ -276,7 +276,6 @@ def build_pilot_colors(teams):
         "MotoGP": ["MotoGP", "motogp", "MGP", "mgp", "moto", "moto gp"]
     }
 
-# -------------------------------------------------------------------------------------------
 
     def parse_color(raw):
         """Gestisce stringa, lista, tuple o jsonb di colore."""
