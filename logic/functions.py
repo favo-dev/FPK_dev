@@ -431,7 +431,6 @@ def get_color(fullname, pilot_colors, category):
 # -------------------------------------------------------------------------------------------
 
 def get_results(race, category, sprint, user):
-    st.write(user["league"])
     file_path = f"{race}/sprint_standings_{user["league"]}.pkl" if sprint else f"{race}/standings_{user["league"]}.pkl"
     if category == "F1":
         bucket_name = "F126"
