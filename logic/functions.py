@@ -458,7 +458,7 @@ def sprint_pole(race, category):
 
 # -------------------------------------------------------------------------------------------
 
-def results_exist(race, tag):
+def results_exist(race, tag, user):
     try:
         data = get_results(tag, race["category"], False, user)
         if not data:
