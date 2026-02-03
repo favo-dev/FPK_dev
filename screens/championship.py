@@ -985,12 +985,12 @@ def raceweek_computer(tag, cat, league):
 
             buffer = io.BytesIO()
             pickle.dump(FILTERED_SPRINT_FINAL, buffer, protocol=pickle.HIGHEST_PROTOCOL)
-            buffer.seek(0)
+            file_bytes = buffer.getvalue()
 
     
             supabase.storage.from_(category).upload(
                 storage_path,
-                buffer,
+                file_bytes,
                 file_options={
                     "content-type": "application/octet-stream",
                     "upsert": True
