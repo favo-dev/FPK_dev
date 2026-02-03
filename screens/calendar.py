@@ -166,7 +166,7 @@ def race_results_screen(user, race):
     st.header(f"[{race.get('category')}] {race.get('ID')} | Results")
 
     race_tag = race.get("tag")
-    teams = supabase.from_("class").select("*").execute().data or []
+    teams = supabase.from_("teams").select("*").execute().data or []
     pilot_colors = build_pilot_colors(teams)
 
     def get_df(data, category):
