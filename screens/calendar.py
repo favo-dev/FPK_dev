@@ -140,7 +140,7 @@ def calendar_screen(user):
                     if st.button("Results", key=f"results_{race_id}_{category}"):
                         with st.spinner("Checking results availability..."):
                             try:
-                                available = results_exist(race, race.get("tag"))
+                                available = results_exist(race, race.get("tag"), user)
                             except Exception as e:
                                 available = False
                                 st.error(f"Errore nel controllo risultati: {e}")
