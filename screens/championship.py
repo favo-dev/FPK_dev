@@ -5,6 +5,7 @@ import pandas as pd
 import io
 from datetime import datetime
 import json
+from pathlib import Path
 import streamlit.components.v1 as components
 from supabase import create_client
 from logic.functions import (
@@ -971,6 +972,30 @@ def raceweek_computer(tag, cat, league):
                 .eq("id", team["UUID"])
                  .execute()
             ) 
+
+            if cat == "F1":
+                category = "F126"
+            elif cat == "MGP":
+                category = "MGP26"
+            else:
+                raise ValueError(f"cat non valida: {cat}")
+    
+            filename = f"sprint_standings_{league}.pkl"
+            storage_path = f"{tag}/{filename}"
+
+            buffer = io.BytesIO()
+            pickle.dump(FILTERED_SPRINT_FINAL, buffer, protocol=pickle.HIGHEST_PROTOCOL)
+            buffer.seek(0)
+
+    
+            supabase.storage.from_(category).upload(
+                storage_path,
+                buffer,
+                file_options={
+                    "content-type": "application/octet-stream",
+                    "upsert": True
+                }
+    
     return    
 
 # --------------------- CHAMPIONSHIP SCREEN ----------------------------------------------------
