@@ -430,9 +430,12 @@ def get_color(fullname, pilot_colors, category):
 
 # -------------------------------------------------------------------------------------------
 
-def get_results(race, category, sprint):
-    file_path = f"{race}/sprint_standings.pkl" if sprint else f"{race}/standings.pkl"
-    bucket_name = category
+def get_results(race, category, sprint, user):
+    file_path = f"{race}/sprint_standings_{user["league"]}.pkl" if sprint else f"{race}/standings_{user["league"]}.pkl"
+    if category == "F1":
+        bucket_name = "F126"
+    else:
+        bucket_name = "MGP26"
     try:
         data_bytes = supabase.storage.from_(bucket_name).download(file_path)
         return pickle.load(io.BytesIO(data_bytes))
