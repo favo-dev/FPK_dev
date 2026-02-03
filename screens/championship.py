@@ -996,6 +996,23 @@ def raceweek_computer(tag, cat, league):
                     "upsert": "true"
                 }
             )
+
+            filename = f"standings_{league}.pkl"
+            storage_path = f"{tag}/{filename}"
+
+            buffer = io.BytesIO()
+            pickle.dump(FILTERED_RACE_FINAL, buffer, protocol=pickle.HIGHEST_PROTOCOL)
+            file_bytes = buffer.getvalue()
+
+    
+            supabase.storage.from_(category).upload(
+                storage_path,
+                file_bytes,
+                file_options={
+                    "content-type": "application/octet-stream",
+                    "upsert": "true"
+                }
+            )
     
     return    
 
