@@ -187,7 +187,7 @@ def race_results_screen(user, race):
             return None
 
     if race.get("sprint"):
-        sprint_data = get_results(race_tag, race["category"], True)
+        sprint_data = get_results(race_tag, race["category"], True, user)
         pole = sprint_pole(race_tag, race["category"])
         if "F1" in race["category"]:
             pole = pole[:-3]
@@ -202,7 +202,7 @@ def race_results_screen(user, race):
         else:
             st.info("No sprint data available.")
 
-    race_data = get_results(race_tag, race["category"], False)
+    race_data = get_results(race_tag, race["category"], False, user)
     if race_data:
         race_data = [[np.nan if x == -99 else x for x in row] for row in race_data]
         st.subheader("🏁 Race Results")
