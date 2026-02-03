@@ -278,8 +278,3 @@ def race_results_screen(user, race):
     if st.button("🔙 Back"):
         st.session_state.screen = "calendar"
         st.rerun()
-
-    if st.button("🔙 Back"):
-        st.session_state.screen = "calendar"
-        st.rerun()
-
