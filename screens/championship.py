@@ -994,7 +994,7 @@ def raceweek_computer(tag, cat, league):
                 file_options={
                     "content-type": "application/octet-stream",
                     "upsert": True
-                }
+                })
     
     return    
 
