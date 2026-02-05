@@ -129,6 +129,7 @@ def standings_screen(user):
                 element["penalty_f1"] = ast.literal_eval(element["penalty_f1"])
                 total_pen = len(element["penalty_f1"]) * penalty_points_f1
                 st.write(total_pen)
+                st.write(element["penalty_f1"])
                 st.write(len(element["penalty_f1"]))
                 st.write(penalty_points_f1)
 
