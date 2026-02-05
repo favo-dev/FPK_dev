@@ -61,10 +61,29 @@ def standings_screen(user):
                 "penalty_mgp": to_list(item.get("penalty_mgp", []))
         }
 
-    penalty_points_f1 = next((float(item["value"]) for item in rules_f1_list if item.get("rule") == "Penalty points for late call-ups") and item["league"]==user["league"], 0.0)
-    penalty_points_mgp = next((float(item["value"]) for item in rules_mgp_list if item.get("rule") == "Penalty points for late call-ups" and item["league"]==user["league"]), 0.0)
+    penalty_points_f1 = next(
+        (
+            float(item["value"])
+            for item in rules_f1_list
+            if item.get("rule") == "Penalty points for late call-ups"
+            and item.get("league") == user["league"]
+        ),
+        0.0
+    )
+
+    penalty_points_mgp = next(
+        (
+            float(item["value"])
+            for item in rules_mgp_list
+            if item.get("rule") == "Penalty points for late call-ups"
+            and item.get("league") == user["league"]
+        ),
+        0.0
+    )
+
     st.write(penalty_points_f1)
     st.write(penalty_points_mgp)
+
     
     # team_points = {}
  #    penalty_points_dict = {}
