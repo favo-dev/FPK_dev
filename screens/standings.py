@@ -63,7 +63,7 @@ def standings_screen(user):
         ),
         0.0
     )
-
+    st.write(penalty_points_f1)
     penalty_points_mgp = next(
         (
             float(item["value"])
@@ -122,7 +122,20 @@ def standings_screen(user):
 
                 team_points[player]["F1"] = total
 
-    st.write(team_points)
+
+
+    or element in points_per_race_mgp:
+        for player in team_points:
+            if element["league"] == user["league"] and element["id"] == player:
+                total = sum(
+                    value
+                    for key, value in element.items()
+                    if key not in excluded_keys and isinstance(value, (int, float))
+                )
+
+                team_points[player]["MotoGP"] = total
+
+   
             
     
 
