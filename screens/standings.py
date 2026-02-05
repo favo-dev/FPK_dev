@@ -109,12 +109,21 @@ def standings_screen(user):
                  if isinstance(value, str):
                      return [v.strip() for v in value.split(",") if v.strip()]
                  return [value]
-
+                 
+    excluded_keys = {"id", "prim_key", "league"}
     for element in points_per_race_f1:
         for player in team_points:
             if element["league"] == user["league"] and element["id"] == player:
-                st.write(player)
-                st.write(element)
+                total = sum(
+                    value
+                    for key, value in element.items()
+                    if key not in excluded_keys and isinstance(value, (int, float))
+                )
+
+                team_points[player]["F1"] = total
+
+    st.write(team_points)
+            
     
 
  #        for series in ["F1", "MotoGP"]:
