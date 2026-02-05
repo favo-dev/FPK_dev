@@ -74,11 +74,11 @@ def standings_screen(user):
         0.0
     )
 
-     team_points = {}
-     penalty_points_dict = {}
-     standings_f1 = {}
-     standings_mgp = {}
-     bucket_map = {"F1": "F1", "MotoGP": "MGP"}
+    team_points = {}
+    penalty_points_dict = {}
+    standings_f1 = {}
+    standings_mgp = {}
+    bucket_map = {"F1": "F1", "MotoGP": "MGP"}
 
   #   per_race_points = {"F1": {}, "MGP": {}}
    #  for bucket_key, races in standings_data.items():
