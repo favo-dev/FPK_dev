@@ -35,7 +35,6 @@ def standings_screen(user):
     rules_mgp_list = load_table("rules_mgp_new")
     points_per_race_f1 = load_table("points_per_race_f1")
     points_per_race_mgp = load_table("points_per_race_mgp")
-    st.write(points_per_race_f1)
     
     loading_placeholder.empty()
     penalty_map = {}
@@ -111,11 +110,11 @@ def standings_screen(user):
                      return [v.strip() for v in value.split(",") if v.strip()]
                  return [value]
 
-             f1_items = ensure_list(team.get("F1")) + ensure_list(team.get("others"))
-             mgp_items = ensure_list(team.get("MotoGP")) + ensure_list(team.get("others"))
-
-             team_drivers_f1_set = build_normalized_team_set(f1_items, use_full_name=False)
-             team_drivers_mgp_set = build_normalized_team_set(mgp_items, use_full_name=True)
+    for element in points_per_race_f1:
+        for player in team_points:
+            if element["league"] == user["league"] and element["id"] == player:
+                st.write(player)
+                st.write(element)
     
 
  #        for series in ["F1", "MotoGP"]:
