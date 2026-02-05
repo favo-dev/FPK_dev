@@ -23,11 +23,11 @@ supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # --------------------- STANDINGS SCREEN ----------------------------------------------------
 
-def standings_screen(user=None):
+def standings_screen(user):
     loading_placeholder = st.empty()
     loading_placeholder.info("⏳ Loading...")
 
-    standings_data = load_standings_from_buckets(["F1", "MGP"])
+    standings_data = load_standings_from_buckets(["F126", "MGP26"], user)
     
     teams = load_table("class")
     pen_list = load_table("penalty")
