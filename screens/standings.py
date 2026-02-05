@@ -139,6 +139,83 @@ def standings_screen(user):
                 penalty_points_dict[player]["MotoGP"] = total_pen
                 team_points[player]["MotoGP"] = team_points[player]["MotoGP"] + total_pen
 
-    st.write(team_points)
-    st.write(penalty_points_dict)
+    
+    def create_standings_table(team_points, penalty_points_dict, series_name):
+        rows = []
+
+        for team_id, data in team_points.items():
+            pts = int(data.get(series_name, 0))
+            penal = int(penalty_points_dict.get(team_id, {}).get(series_name, 0))
+            name = data.get("Name", team_id)
+
+            rows.append({
+                "Team": name,
+                "Pts": pts,
+                "Penalty": penal
+            })
+
+        df = pd.DataFrame(rows)
+        if df.empty:
+            return df
+
+        df = df.sort_values(by="Pts", ascending=False).reset_index(drop=True)
+        df["Position"] = df.index + 1
+
+        leader_points = df["Pts"].iloc[0]
+        df["Gap from previous"] = (
+            df["Pts"].shift(1).fillna(leader_points) - df["Pts"]
+        ).clip(lower=0).astype(int)
+
+        df["Gap from leader"] = (leader_points - df["Pts"]).astype(int)
+
+        return df[
+            ["Position", "Team", "Pts", "Penalty", "Gap from previous", "Gap from leader"]
+        ]
+
+    standings_f1_table = create_standings_table(team_points, penalty_points_dict, "F1")
+    standings_mgp_table = create_standings_table(team_points, penalty_points_dict, "MotoGP")
+
+    combined_rows = []
+
+    for team_id, data in team_points.items():
+        total_pts = int(data.get("F1", 0) + data.get("MotoGP", 0))
+        total_pen = int(
+            penalty_points_dict.get(team_id, {}).get("F1", 0)
+            + penalty_points_dict.get(team_id, {}).get("MotoGP", 0)
+        )
+
+        combined_rows.append({
+            "Team": data.get("Name", team_id),
+            "Pts": total_pts,
+            "Penalty": total_pen
+        })
+
+    standings_combined_table = pd.DataFrame(combined_rows)
+
+    if not standings_combined_table.empty:
+        standings_combined_table = (
+            standings_combined_table
+            .sort_values(by="Pts", ascending=False)
+            .reset_index(drop=True)
+        )
+
+        standings_combined_table["Position"] = standings_combined_table.index + 1
+        leader_points = standings_combined_table["Pts"].iloc[0]
+
+        standings_combined_table["Gap from previous"] = (
+            standings_combined_table["Pts"].shift(1).fillna(leader_points)
+            - standings_combined_table["Pts"]
+        ).clip(lower=0).astype(int)
+
+        standings_combined_table["Gap from leader"] = (
+            leader_points - standings_combined_table["Pts"]
+        ).astype(int)
+
+    render_standings_custom(standings_f1_table, teams, "FF1")
+    st.markdown("<hr style='border:2px solid #000; margin:20px 0;'>", unsafe_allow_html=True)
+
+    render_standings_custom(standings_mgp_table, teams, "FMGP")
+    st.markdown("<hr style='border:2px solid #000; margin:20px 0;'>", unsafe_allow_html=True)
+
+    render_standings_custom(standings_combined_table, teams, "FPK")
 
