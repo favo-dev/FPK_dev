@@ -122,14 +122,19 @@ def standings_screen(user):
 
                 team_points[player]["F1"] = total
     st.write(team_points)
+    
     for element in pen_list:
         for player in team_points:
             if element["league"] == user["league"] and element["uuid"] == player:
                 element["penalty_f1"] = ast.literal_eval(element["penalty_f1"])
                 total_pen = len(element["penalty_f1"]) * penalty_points_f1
+                st.write(total_pen)
+                st.write(len(element["penalty_f1"])
+                st.write(penalty_points_f1)
 
-                team_points[player]["F1"] = team_points[player]["F1"] - total_pen
+                team_points[player]["F1"] = team_points[player]["F1"] + total_pen
     st.write(team_points)
+    
     for element in points_per_race_mgp:
         for player in team_points:
             if element["league"] == user["league"] and element["id"] == player:
@@ -147,7 +152,7 @@ def standings_screen(user):
                 element["penalty_mgp"] = ast.literal_eval(element["penalty_mgp"])
                 total_pen = len(element["penalty_mgp"]) * penalty_points_mgp
 
-                team_points[player]["MotoGP"] = team_points[player]["MotoGP"] - total_pen
+                team_points[player]["MotoGP"] = team_points[player]["MotoGP"] + total_pen
 
     st.write(team_points)
             
