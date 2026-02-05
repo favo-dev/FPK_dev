@@ -29,14 +29,17 @@ def standings_screen(user):
 
     standings_data = load_standings_from_buckets(["F126", "MGP26"], user)
     
-    teams = load_table("class")
-    pen_list = load_table("penalty")
-    rules_f1_list = load_table("rules_f1")
-    rules_mgp_list = load_table("rules_mgp")
+    teams = load_table("teams")
+    pen_list = load_table("penalty_new")
+    rules_f1_list = load_table("rules_f1_new")
+    rules_mgp_list = load_table("rules_mgp_new")
+    points_per_race_f1 = load_table("points_per_race_f1")
+    points_per_race_mgp = load_table("points_per_race_mgp")
+    
     loading_placeholder.empty()
     penalty_map = {}
     for item in pen_list:
-        team_key = item.get("team") or item.get("team_id") or item.get("ID")
+        team_key = item.get("uuid") or item.get("team_id") or item.get("ID")
         if not team_key:
             continue
         def to_list(value):
@@ -45,13 +48,14 @@ def standings_screen(user):
             if isinstance(value, str):
                 return [v.strip() for v in value.split(",") if v.strip()]
             return []
-        penalty_map[team_key] = {
-            "penalty_f1": to_list(item.get("penalty_f1", [])),
-            "penalty_mgp": to_list(item.get("penalty_mgp", []))
+        if item["league"] == user["league"]:
+            penalty_map[team_key] = {
+                "penalty_f1": to_list(item.get("penalty_f1", [])),
+                "penalty_mgp": to_list(item.get("penalty_mgp", []))
         }
 
-    penalty_points_f1 = next((float(item["value"]) for item in rules_f1_list if item.get("rule") == "Penalty points for late call-ups"), 0.0)
-    penalty_points_mgp = next((float(item["value"]) for item in rules_mgp_list if item.get("rule") == "Penalty points for late call-ups"), 0.0)
+    penalty_points_f1 = next((float(item["value"]) for item in rules_f1_list if item.get("rule") == "Penalty points for late call-ups") and item["league"]==user["league"], 0.0)
+    penalty_points_mgp = next((float(item["value"]) for item in rules_mgp_list if item.get("rule") == "Penalty points for late call-ups" and item["league"]==user["league"]), 0.0)
 
     team_points = {}
     penalty_points_dict = {}
