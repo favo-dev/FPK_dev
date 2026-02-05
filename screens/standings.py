@@ -27,7 +27,7 @@ def standings_screen(user):
     loading_placeholder = st.empty()
     loading_placeholder.info("⏳ Loading...")
 
-    standings_data = load_standings_from_buckets(["F126", "MGP26"], user)
+    standings_data = load_standings_from_buckets(user, ["F126", "MGP26"])
     
     teams = load_table("teams")
     pen_list = load_table("penalty_new")
