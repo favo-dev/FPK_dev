@@ -124,7 +124,7 @@ def standings_screen(user):
 
 
 
-    or element in points_per_race_mgp:
+    for element in points_per_race_mgp:
         for player in team_points:
             if element["league"] == user["league"] and element["id"] == player:
                 total = sum(
