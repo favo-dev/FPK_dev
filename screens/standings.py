@@ -27,7 +27,7 @@ def standings_screen(user):
     loading_placeholder = st.empty()
     loading_placeholder.info("⏳ Loading...")
 
-    standings_data = load_standings_from_buckets(user, ["F126", "MGP26"])
+    #standings_data = load_standings_from_buckets(user, ["F126", "MGP26"])
     
     teams = load_table("teams")
     pen_list = load_table("penalty_new")
@@ -35,13 +35,6 @@ def standings_screen(user):
     rules_mgp_list = load_table("rules_mgp_new")
     points_per_race_f1 = load_table("points_per_race_f1")
     points_per_race_mgp = load_table("points_per_race_mgp")
-
-    st.write(teams)
-    st.write(pen_list)
-    st.write(rules_f1_list)
-    st.write(rules_mgp_list)
-    st.write(points_per_race_f1)
-    st.write(points_per_race_mgp)
     
     loading_placeholder.empty()
     penalty_map = {}
@@ -81,51 +74,49 @@ def standings_screen(user):
         0.0
     )
 
-    st.write(penalty_points_f1)
-    st.write(penalty_points_mgp)
+     team_points = {}
+     penalty_points_dict = {}
+     standings_f1 = {}
+     standings_mgp = {}
+     bucket_map = {"F1": "F1", "MotoGP": "MGP"}
 
-    
-    # team_points = {}
- #    penalty_points_dict = {}
- #    standings_f1 = {}
- #    standings_mgp = {}
- #    bucket_map = {"F1": "F1", "MotoGP": "MGP"}
+  #   per_race_points = {"F1": {}, "MGP": {}}
+   #  for bucket_key, races in standings_data.items():
+    #     for race_tag, race_data in races.items():
+     #        pts_dict = {}
+      #       d1 = build_points_dict(race_data.get("standings"), use_full_name=(bucket_key == "MGP"))
+       #      d2 = build_points_dict(race_data.get("sprint_standings"), use_full_name=(bucket_key == "MGP"))
+        #     keys = set(d1.keys()) | set(d2.keys())
+         #    for k in keys:
+          #       pts_dict[k] = d1.get(k, 0) + d2.get(k, 0)
+           #  per_race_points[bucket_key][race_tag] = pts_dict
+        
+     for team in teams:
+         if team["league"] == user["league"]:
+             team_name = team.get("UUID") 
+             if not team_name:
+                 continue
+             team_points[team_name] = {"F1": {}, "MotoGP": {}}
+             penalty_points_dict[team_name] = {"F1": 0, "MotoGP": 0}
+             total_f1_points = 0.0
+             total_mgp_points = 0.0
 
- #    per_race_points = {"F1": {}, "MGP": {}}
- #    for bucket_key, races in standings_data.items():
- #        for race_tag, race_data in races.items():
- #            pts_dict = {}
- #            d1 = build_points_dict(race_data.get("standings"), use_full_name=(bucket_key == "MGP"))
- #            d2 = build_points_dict(race_data.get("sprint_standings"), use_full_name=(bucket_key == "MGP"))
- #            keys = set(d1.keys()) | set(d2.keys())
- #            for k in keys:
- #                pts_dict[k] = d1.get(k, 0) + d2.get(k, 0)
- #            per_race_points[bucket_key][race_tag] = pts_dict
+             def ensure_list(value):
+                 if value is None:
+                     return []
+                 if isinstance(value, list):
+                     return value
+                 if isinstance(value, str):
+                     return [v.strip() for v in value.split(",") if v.strip()]
+                 return [value]
 
- #    for team in teams:
- #        team_name = team.get("ID") or team.get("id") or team.get("team_id") or team.get("name")
- #        if not team_name:
- #            continue
- #        team_points[team_name] = {"F1": {}, "MotoGP": {}}
- #        penalty_points_dict[team_name] = {"F1": 0, "MotoGP": 0}
- #        total_f1_points = 0.0
- #        total_mgp_points = 0.0
+             f1_items = ensure_list(team.get("F1")) + ensure_list(team.get("others"))
+             mgp_items = ensure_list(team.get("MotoGP")) + ensure_list(team.get("others"))
 
- #        def ensure_list(value):
- #            if value is None:
- #                return []
- #            if isinstance(value, list):
- #                return value
- #            if isinstance(value, str):
- #                return [v.strip() for v in value.split(",") if v.strip()]
- #            return [value]
-
- #        f1_items = ensure_list(team.get("F1")) + ensure_list(team.get("others"))
- #        mgp_items = ensure_list(team.get("MotoGP")) + ensure_list(team.get("others"))
-
- #        team_drivers_f1_set = build_normalized_team_set(f1_items, use_full_name=False)
- #        team_drivers_mgp_set = build_normalized_team_set(mgp_items, use_full_name=True)
-
+             team_drivers_f1_set = build_normalized_team_set(f1_items, use_full_name=False)
+             team_drivers_mgp_set = build_normalized_team_set(mgp_items, use_full_name=True)
+    for player in team_points:
+        st.write(player)
 
  #        for series in ["F1", "MotoGP"]:
  #            bucket_key = bucket_map.get(series, "MGP")
