@@ -116,8 +116,7 @@ def standings_screen(user):
 
              team_drivers_f1_set = build_normalized_team_set(f1_items, use_full_name=False)
              team_drivers_mgp_set = build_normalized_team_set(mgp_items, use_full_name=True)
-    for player in team_points:
-        for 
+    
 
  #        for series in ["F1", "MotoGP"]:
  #            bucket_key = bucket_map.get(series, "MGP")
