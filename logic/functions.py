@@ -699,7 +699,7 @@ def list_all(bucket: str, path: str = "") -> List[dict]:
 
 # -------------------------------------------------------------------------------------------
 
-def load_standings_from_buckets(buckets: List[str] = ["F126", "MGP26"], user) -> Dict[str, Dict[str, Dict[str, Any]]]:
+def load_standings_from_buckets(user, buckets: List[str] = ["F126", "MGP26"]) -> Dict[str, Dict[str, Dict[str, Any]]]:
     standings_data: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
     for bucket in buckets:
@@ -745,7 +745,7 @@ def load_standings_from_buckets(buckets: List[str] = ["F126", "MGP26"], user) ->
 
 # -------------------------------------------------------------------------------------------
 
-def build_points_dict(category_data: Any, use_full_name: bool, user) -> Dict[str, float]:
+def build_points_dict(user, category_data: Any, use_full_name: bool) -> Dict[str, float]:
     points: Dict[str, float] = {}
     if not category_data:
         return points
