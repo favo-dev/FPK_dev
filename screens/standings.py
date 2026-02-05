@@ -35,6 +35,7 @@ def standings_screen(user):
     rules_mgp_list = load_table("rules_mgp_new")
     points_per_race_f1 = load_table("points_per_race_f1")
     points_per_race_mgp = load_table("points_per_race_mgp")
+    st.write(points_per_race_f1)
     
     loading_placeholder.empty()
     penalty_map = {}
@@ -116,7 +117,7 @@ def standings_screen(user):
              team_drivers_f1_set = build_normalized_team_set(f1_items, use_full_name=False)
              team_drivers_mgp_set = build_normalized_team_set(mgp_items, use_full_name=True)
     for player in team_points:
-        st.write(player)
+        for 
 
  #        for series in ["F1", "MotoGP"]:
  #            bucket_key = bucket_map.get(series, "MGP")
