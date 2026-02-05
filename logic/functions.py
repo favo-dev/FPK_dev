@@ -699,7 +699,7 @@ def list_all(bucket: str, path: str = "") -> List[dict]:
 
 # -------------------------------------------------------------------------------------------
 
-def load_standings_from_buckets(buckets: List[str] = ["F1", "MGP"]) -> Dict[str, Dict[str, Dict[str, Any]]]:
+def load_standings_from_buckets(buckets: List[str] = ["F126", "MGP26"], user) -> Dict[str, Dict[str, Dict[str, Any]]]:
     standings_data: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
     for bucket in buckets:
@@ -715,9 +715,9 @@ def load_standings_from_buckets(buckets: List[str] = ["F1", "MGP"]) -> Dict[str,
             file_names_lower = [fn.lower() for fn in file_names]
 
             main_file = next((fn for fn, fn_l in zip(file_names, file_names_lower)
-                              if fn_l.endswith("standings.pkl") and "sprint" not in fn_l), None)
+                              if fn_l.endswith(f"standings_{user["league"]}.pkl") and "sprint" not in fn_l), None)
             sprint_file = next((fn for fn, fn_l in zip(file_names, file_names_lower)
-                                if fn_l.endswith("sprint_standings.pkl")), None)
+                                if fn_l.endswith(f"sprint_standings_{user["league"]}.pkl")), None)
 
             if main_file:
                 try:
