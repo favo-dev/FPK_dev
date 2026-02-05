@@ -745,7 +745,7 @@ def load_standings_from_buckets(buckets: List[str] = ["F126", "MGP26"], user) ->
 
 # -------------------------------------------------------------------------------------------
 
-def build_points_dict(category_data: Any, use_full_name: bool) -> Dict[str, float]:
+def build_points_dict(category_data: Any, use_full_name: bool, user) -> Dict[str, float]:
     points: Dict[str, float] = {}
     if not category_data:
         return points
