@@ -91,7 +91,7 @@ def standings_screen(user):
           #       pts_dict[k] = d1.get(k, 0) + d2.get(k, 0)
            #  per_race_points[bucket_key][race_tag] = pts_dict
         
-     for team in teams:
+    for team in teams:
          if team["league"] == user["league"]:
              team_name = team.get("UUID") 
              if not team_name:
