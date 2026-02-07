@@ -677,7 +677,7 @@ def league_screen(user):
                                 st.info("Inserted points_per_race_f1 row.")
                         except Exception as e:
                             st.error(f"Exception inserting points_per_race_f1: {e}")
-
+                        st.write("DEBUG f1 insert:", f1_ins)
                             
                         try:
                             mgp_points_row = {
