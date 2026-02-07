@@ -243,7 +243,7 @@ def roll_screen(user):
     # Left crown (usa URL se presente nella entry, altrimenti usa un'immagine fissa)
     with colL:
         try:
-            url_left = entry.get("left_crown_url") or 'https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/crown_left.png'
+            url_left = entry.get("left_crown_url") or 'https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/crown_left.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL2Nyb3duX2xlZnQucG5nIiwiaWF0IjoxNzcwNDcwNzA2LCJleHAiOjE4MDIwMDY3MDZ9.iPmiC517csEBM7HiDUn2tG4PSewHOEPDhGjbjnHpwJU'
             st.image(url_left, use_container_width=True)
         except Exception:
             # se l'URL scaduto o non valido, non rompiamo l'app
@@ -311,7 +311,7 @@ def roll_screen(user):
     # Right crown
     with colR:
         try:
-            url_right = entry.get("right_crown_url") or 'https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/crown_right.png'
+            url_right = entry.get("right_crown_url") or 'https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/crown_right.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL2Nyb3duX3JpZ2h0LnBuZyIsImlhdCI6MTc3MDQ3MDc0MiwiZXhwIjoxODAyMDA2NzQyfQ.irKRh6LreH-dQTSf4u7BxVjonG1J9W7AlpDAzNC5kdw'
             st.image(url_right, use_container_width=True)
         except Exception:
             pass
