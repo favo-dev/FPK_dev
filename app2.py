@@ -215,7 +215,7 @@ else:
     with col1:
         st.image(
             "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/cover4.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL2NvdmVyNC5wbmciLCJpYXQiOjE3NzA0Njk1NjQsImV4cCI6MTgwMjAwNTU2NH0.iiEet_eGEJTHKX_To096Oqgw4msobQsXLC-WMiePqA8",
-            width='stretch'
+            use_container_width=True
         )
 
     # --- Colonna destra: form login o registrazione
@@ -299,6 +299,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
