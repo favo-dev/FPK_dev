@@ -59,8 +59,8 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 st.set_page_config(
-    page_title="FPK Dev",
-    page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/icons/FAVLINK_192.png",
+    page_title="FPK 1.2.0 'Hakkinen'",
+    page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/public/icons/FAVLINK_512.png",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
@@ -299,6 +299,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
