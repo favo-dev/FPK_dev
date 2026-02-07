@@ -377,6 +377,21 @@ def league_screen(user):
                                             current_month_year,
                                         )
                                         if team_inserted:
+                                            # --- NUOVO: inserisci righe iniziali nelle tabelle calls_f1_new, calls_mgp_new e penalty_new
+                                            try:
+                                                cf1_resp = supabase.from_("calls_f1_new").insert({"uuid": player_uuid, "league": league_id}).execute()
+                                                cmgp_resp = supabase.from_("calls_mgp_new").insert({"uuid": player_uuid, "league": league_id}).execute()
+                                                pen_resp = supabase.from_("penalty_new").insert({
+                                                    "uuid": player_uuid,
+                                                    "league": league_id,
+                                                    "penalty_f1": 0,
+                                                    "penalty_mgp": 0
+                                                }).execute()
+                                                if getattr(cf1_resp, "error", None) or getattr(cmgp_resp, "error", None) or getattr(pen_resp, "error", None):
+                                                    st.warning("Warning: non è stato possibile inserire tutte le righe iniziali in calls/penalty. Verifica i log.")
+                                            except Exception as e:
+                                                st.warning(f"Warning: errore durante l'inserimento delle righe iniziali: {e}")
+
                                             # pulisco il form di join così non rimane visibile nelle sessioni successive
                                             for k in ("join_league_found","join_league_id","join_league_pw_input","join_team_name","join_team_location","join_main_color_hex","join_second_color_hex"):
                                                 st.session_state.pop(k, None)
@@ -408,6 +423,21 @@ def league_screen(user):
                                     league.get("foundation"),
                                 )
                                 if team_inserted:
+                                    # --- NUOVO: inserisci righe iniziali nelle tabelle calls_f1_new, calls_mgp_new e penalty_new
+                                    try:
+                                        cf1_resp = supabase.from_("calls_f1_new").insert({"uuid": player_uuid, "league": league_id}).execute()
+                                        cmgp_resp = supabase.from_("calls_mgp_new").insert({"uuid": player_uuid, "league": league_id}).execute()
+                                        pen_resp = supabase.from_("penalty_new").insert({
+                                            "uuid": player_uuid,
+                                            "league": league_id,
+                                            "penalty_f1": 0,
+                                            "penalty_mgp": 0
+                                        }).execute()
+                                        if getattr(cf1_resp, "error", None) or getattr(cmgp_resp, "error", None) or getattr(pen_resp, "error", None):
+                                            st.warning("Warning: non è stato possibile inserire tutte le righe iniziali in calls/penalty. Verifica i log.")
+                                    except Exception as e:
+                                        st.warning(f"Warning: errore durante l'inserimento delle righe iniziali: {e}")
+
                                     # pulisco il form di join così non rimane visibile nelle sessioni successive
                                     for k in ("join_league_found","join_league_id","join_league_pw_input","join_team_name","join_team_location","join_main_color_hex","join_second_color_hex"):
                                         st.session_state.pop(k, None)
