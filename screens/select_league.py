@@ -672,7 +672,9 @@ def league_screen(user):
                                 st.error(f"Error inserting into points_per_race_f1: {f1_ins.error}")
                             else:
                                 st.info("Inserted points_per_race_f1 row.")
-
+                        except Exception as e:
+                            st.error(f"Exception inserting points_per_race_f1: {e}")
+                            
                         try:
                             mgp_points_row = {
                                 "id": str(uuid.uuid4()),
@@ -685,7 +687,8 @@ def league_screen(user):
                                 st.error(f"Error inserting into points_per_race_mgp: {mgp_ins.error}")
                             else:
                                 st.info("Inserted points_per_race_mgp row.")
-
+                        except Exception as e:
+                            st.error(f"Exception inserting points_per_race_mgp: {e}")
                         try:
                             # prepara riga per calls_f1_new
                             call_row_f1 = {
