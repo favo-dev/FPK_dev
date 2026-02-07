@@ -60,7 +60,7 @@ for k, v in defaults.items():
         st.session_state[k] = v
 st.set_page_config(
     page_title="FPK 1.2.0 'Hakkinen'",
-    page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/FPK26_1500.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL0ZQSzI2XzE1MDAucG5nIiwiaWF0IjoxNzcwNDcxNjk1LCJleHAiOjE4MDIwMDc2OTV9.kvU0DuYYFm7V6fwjPh5KLINFZln--9tXJngVFzet9Nw",
+    page_icon="https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/FPK26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL0ZQSzI2LnBuZyIsImlhdCI6MTc3MDQ3MjA0OCwiZXhwIjoxODAyMDA4MDQ4fQ.wUYcHQZXpv1J8qcSUGEr_1V-KwB9eTKkIM8PyhxvVDI",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
@@ -299,6 +299,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
