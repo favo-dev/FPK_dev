@@ -366,6 +366,7 @@ def league_screen(user):
                                     if main_color_rgb is None or second_color_rgb is None:
                                         st.error("Errore nella conversione dei colori. Riprova.")
                                     else:
+                                        current_month_year = datetime.now().strftime("%B %Y")
                                         team_inserted = build_team(
                                             user,
                                             league_id,
@@ -373,7 +374,7 @@ def league_screen(user):
                                             main_color_rgb,
                                             second_color_rgb,
                                             team_location_val,
-                                            league.get("foundation"),
+                                            current_month_year,
                                         )
                                         if team_inserted:
                                             # pulisco il form di join così non rimane visibile nelle sessioni successive
