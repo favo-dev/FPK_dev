@@ -214,7 +214,7 @@ else:
 
     with col1:
         st.image(
-            "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/cover2.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL2NvdmVyMi5wbmciLCJpYXQiOjE3NzA0Njg1MjYsImV4cCI6MTgwMjAwNDUyNn0.yGQVar5XcSxth94W5HKjK8Eo6Vf94a8UR6bwUiTSR3U",
+            "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/cover3.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL2NvdmVyMy5wbmciLCJpYXQiOjE3NzA0NjkyNTgsImV4cCI6MTgwMjAwNTI1OH0.zymC8xKUCgHUZfdl1B3NI1nklMdmy7rulqkstG5B-4w",
             width='stretch'
         )
 
@@ -299,6 +299,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
