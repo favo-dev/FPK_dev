@@ -68,7 +68,7 @@ def home_screen(user):
         key="main_nav_select"   # <-- unique key added
     )
 
-    logo_url = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=..."
+    logo_url = "https://koffsyfgevaannnmjkvl.supabase.co/storage/v1/object/sign/figures/new_favicon.svg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9hNTU1ZWI5ZC03NmZjLTRiMjUtOGIwMC05ZDQ4ZTRhNGNhMDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmaWd1cmVzL25ld19mYXZpY29uLnN2ZyIsImlhdCI6MTc3MDQ3MDk2MSwiZXhwIjoxODAyMDA2OTYxfQ.LcmoNq4J_yWM121CTEbr0ViO6eiMEdzEgyiJVUcWbJA"
     st.sidebar.image(logo_url, width='stretch')
 
     if selection != st.session_state.nav_selection:
