@@ -210,7 +210,7 @@ else:
     st.title("Login / Registration")
     choice = st.radio("Select:", ["Login", "Registration"]) 
 
-    col1, col2 = st.columns([1, 2])
+    col1, col2 = st.columns([1, 1])
 
     with col1:
         st.image(
@@ -299,6 +299,7 @@ else:
                         st.error(f"Errore salvataggio su DB: {e}")
                         st.stop()
                     st.success("Registration successful! Please log in.")
+
 
 
 
