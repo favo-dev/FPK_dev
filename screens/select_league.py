@@ -420,7 +420,7 @@ def league_screen(user):
                                     main_color_rgb,
                                     second_color_rgb,
                                     team_location_val,
-                                    league.get("foundation"),
+                                    datetime.now().strftime("%B %Y"),
                                 )
                                 if team_inserted:
                                     # --- NUOVO: inserisci righe iniziali nelle tabelle calls_f1_new, calls_mgp_new e penalty_new
@@ -663,31 +663,28 @@ def league_screen(user):
 
                         try:
                             f1_points_row = {
-                                "prim_key": str(uuid.uuid4()),
-                                "id": user.get("UUID"),
+                                "id": str(uuid.uuid4()),   # usa id standard
+                                "uuid": user.get("UUID"),
                                 "league": league_id
                             }
-                            row_ins = supabase.from_("points_per_race_f1").insert(f1_points_row).execute()
-                            if getattr(row_ins, "error", None):
-                                st.error(f"Error inserting into points_per_race_f1: {row_ins.error}")
+                            f1_ins = supabase.from_("points_per_race_f1").insert([f1_points_row]).execute()
+                            if getattr(f1_ins, "error", None):
+                                st.error(f"Error inserting into points_per_race_f1: {f1_ins.error}")
                             else:
-                                st.info("Inserted points_per_race_f1 row for league.")
-                        except Exception as e:
-                            st.error(f"Exception inserting points_per_race_f1: {e}")
+                                st.info("Inserted points_per_race_f1 row.")
 
                         try:
                             mgp_points_row = {
-                                "prim_key": str(uuid.uuid4()),
-                                "id": user.get("UUID"),
+                                "id": str(uuid.uuid4()),
+                                "uuid": user.get("UUID"),
                                 "league": league_id
                             }
-                            row_ins = supabase.from_("points_per_race_mgp").insert(mgp_points_row).execute()
-                            if getattr(row_ins, "error", None):
-                                st.error(f"Error inserting into points_per_race_mgp: {row_ins.error}")
+
+                            mgp_ins = supabase.from_("points_per_race_mgp").insert([mgp_points_row]).execute()
+                            if getattr(mgp_ins, "error", None):
+                                st.error(f"Error inserting into points_per_race_mgp: {mgp_ins.error}")
                             else:
-                                st.info("Inserted points_per_race_mgp row for league.")
-                        except Exception as e:
-                            st.error(f"Exception inserting points_per_race_mgp: {e}")
+                                st.info("Inserted points_per_race_mgp row.")
 
                         try:
                             # prepara riga per calls_f1_new
