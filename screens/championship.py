@@ -271,17 +271,17 @@ def compute_results_menu(league_id: str):
             st.success(f"Results computed for {category} – race {race_id}")
 
 def raceweek_computer(tag, cat, league):
-    url = SUPABASE_URL
-    key = SUPABASE_ANON_KEY
+
     if cat == "MotoGP":
         cat = "MGP"
+
     user = st.session_state.get("user") or {}
     user_uuid = (user.get("UUID") or user.get("uuid")) if isinstance(user, dict) else None
 
     # -----------------------
     # Bucket mapping
     # -----------------------
-    
+
     bucket_map = {
         "F1": "F126",
         "MGP": "MGP26"
@@ -293,29 +293,35 @@ def raceweek_computer(tag, cat, league):
     bucket_name = bucket_map[cat]
 
     # -----------------------
-    # Download pickle
+    # Download result_matrix.pkl
     # -----------------------
-    
+
     file_path = f"{tag}/result_matrix.pkl"
 
     try:
         file_bytes = supabase.storage.from_(bucket_name).download(file_path)
-    except Exception:
-        print("Results are not available")
-        file_bytes = None
 
-    results = pickle.loads(file_bytes)
+        # File non trovato o vuoto
+        if not file_bytes:
+            st.warning("Results not available!")
+            return
+
+        results = pickle.loads(file_bytes)
+
+    except Exception:
+        st.warning("Results not available!")
+        return   # ← BLOCCA COMPLETAMENTE L'ESECUZIONE
 
     # -----------------------
     # Table mapping
     # -----------------------
-    
+
     table_map = {
         "F1": {
             "marks": "marks_f1_new",
             "rules": "rules_f1_new",
             "calls": "calls_f1_hist"
-    },
+        },
         "MGP": {
             "marks": "marks_mgp_new",
             "rules": "rules_mgp_new",
@@ -326,25 +332,36 @@ def raceweek_computer(tag, cat, league):
     marks_table = table_map[cat]["marks"]
     rules_table = table_map[cat]["rules"]
     calls_table = table_map[cat]["calls"]
-    
 
     # -----------------------
     # Fetch tables
     # -----------------------
-    
-    marks_response = supabase.table(marks_table).select("*").execute()
-    rules_response = (supabase.table(rules_table).select("*").order("rule", desc=False).execute())
-    calls_response = supabase.table(calls_table).select("*").execute()
-    starter_number_response = supabase.table("leagues").select("*").execute()
 
-    marks = marks_response.data
-    rules = rules_response.data
-    rules = [item for item in rules if item["league"] == league]
-    calls = calls_response.data
-    calls = [item for item in calls if item["tag"] == tag and item["league"] == league]
-    starter_number = starter_number_response.data
-    starter_number = [item for item in starter_number if item["ID"] == league]
-    
+    try:
+        marks_response = supabase.table(marks_table).select("*").execute()
+        rules_response = (
+            supabase.table(rules_table)
+            .select("*")
+            .order("rule", desc=False)
+            .execute()
+        )
+        calls_response = supabase.table(calls_table).select("*").execute()
+        starter_number_response = supabase.table("leagues").select("*").execute()
+    except Exception as e:
+        st.error(f"Error fetching tables: {e}")
+        return
+
+    marks = marks_response.data or []
+    rules = [item for item in (rules_response.data or []) if item["league"] == league]
+    calls = [
+        item for item in (calls_response.data or [])
+        if item["tag"] == tag and item["league"] == league
+    ]
+    starter_number = [
+        item for item in (starter_number_response.data or [])
+        if item["ID"] == league
+    ]
+
     # -----------------------
     # Functions
     # -----------------------
