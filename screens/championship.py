@@ -300,10 +300,9 @@ def raceweek_computer(tag, cat, league):
 
     try:
         file_bytes = supabase.storage.from_(bucket_name).download(file_path)
-    except Exception as e:
-        raise FileNotFoundError(
-            f"Impossibile scaricare {file_path} dal bucket {bucket_name}"
-        ) from e
+    except Exception:
+        print("Results are not available")
+        file_bytes = None
 
     results = pickle.loads(file_bytes)
 
