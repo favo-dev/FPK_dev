@@ -266,9 +266,13 @@ def compute_results_menu(league_id: str):
 
     with col2:
         if st.button("Confirm compute", disabled=is_empty):
-            raceweek_computer(tag, category, league_id)
+            computed = raceweek_computer(tag, category, league_id)
 
-            st.success(f"Results computed for {category} – race {race_id}")
+            if computed:
+                st.success(f"Results computed for {category} – race {race_id}")
+            else:
+                # la funzione ha già mostrato lo warning; puoi aggiungere un messaggio aggiuntivo o log se vuoi
+                st.info("No results computed.")
 
 def raceweek_computer(tag, cat, league):
 
@@ -304,13 +308,13 @@ def raceweek_computer(tag, cat, league):
         # File non trovato o vuoto
         if not file_bytes:
             st.warning("Results not available!")
-            return
+            return False
 
         results = pickle.loads(file_bytes)
 
     except Exception:
         st.warning("Results not available!")
-        return   # ← BLOCCA COMPLETAMENTE L'ESECUZIONE
+        return False   # ← RITORNO esplicito: niente calcolo fatto
 
     # -----------------------
     # Table mapping
@@ -1030,7 +1034,7 @@ def raceweek_computer(tag, cat, league):
                 }
             )
     
-    return    
+    return True   
 
 # --------------------- CHAMPIONSHIP SCREEN ----------------------------------------------------
 
