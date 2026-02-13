@@ -231,7 +231,7 @@ def callup_screen(user):
                 continue
 
         if not filtered_calls:
-            st.info("Nessuna chiamata pubblica valida per la gara corrente (filtri league/limiti).")
+            st.info("Still not valid call-ups for the next event")
             return
 
         # CSS
